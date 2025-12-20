@@ -151,10 +151,10 @@ class DashboardPage extends StatelessWidget {
 
   Widget _buildComingUpList() {
     // Dữ liệu giả - sau này sẽ lấy từ Supabase
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
-        children: const [
+        children: [
           TaskCard(
             title: 'Submit assignment',
             subtitle: '• School',
@@ -200,10 +200,10 @@ class DashboardPage extends StatelessWidget {
   // === HÀM MỚI ĐỂ HIỂN THỊ CÁC TASK ĐÃ LỠ ===
   Widget _buildMissedTasksList() {
     // Dữ liệu giả cho các task đã lỡ
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
-        children: const [
+        children: [
           TaskCard(
             title: 'Complete budget report',
             subtitle: 'Yesterday • Work',

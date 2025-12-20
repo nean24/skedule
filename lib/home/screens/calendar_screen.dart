@@ -320,7 +320,7 @@ void _showAddEventDialog(BuildContext context) {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: DropdownButtonFormField<String>(
-                    value: 'Note',
+                    initialValue: 'Note',
                     decoration: const InputDecoration(border: InputBorder.none),
                     items: ['Note', 'Task', 'Meeting'].map((String value) {
                       return DropdownMenuItem<String>(

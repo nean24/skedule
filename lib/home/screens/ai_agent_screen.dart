@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skedule/main.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';

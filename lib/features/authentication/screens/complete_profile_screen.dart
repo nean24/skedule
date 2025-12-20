@@ -138,7 +138,7 @@
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _selectedGender,
+                    initialValue: _selectedGender,
                     decoration: const InputDecoration(labelText: 'Giới tính'),
                     items: ['Nam', 'Nữ', 'Khác'].map((String value) {
                       return DropdownMenuItem<String>(value: value, child: Text(value));

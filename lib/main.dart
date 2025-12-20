@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:skedule/auth_gate.dart';
-import 'package:skedule/features/authentication/screens/new_password_screen.dart';
 
 // === BƯỚC 1: TẠO MỘT CLASS ĐỂ GHI ĐÈ CÁC QUY TẮC HTTP ===
 // Class này sẽ bảo Flutter bỏ qua các lỗi chứng chỉ SSL.
