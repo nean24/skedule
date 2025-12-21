@@ -4,6 +4,8 @@ import 'package:skedule/home/screens/calendar_screen.dart'; // <<< ĐÃ THÊM D�
 import 'package:skedule/home/screens/ai_agent_screen.dart';
 import 'package:skedule/home/screens/dashboard_page.dart';
 import 'package:skedule/home/screens/preferences_screen.dart';
+import 'package:skedule/home/screens/note_screen.dart'; // Import NoteScreen
+import 'package:skedule/features/payment/payment_screen.dart'; // Import PaymentScreen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static final List<Widget> _mainPages = <Widget>[
     const DashboardPage(),
     const CalendarScreen(),
-    const Center(child: Text('Notes Page')),
+    const NoteScreen(), // Thay thế placeholder bằng NoteScreen
   ];
   // =====================
 
@@ -37,6 +39,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _navigateToPayment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PaymentScreen()),
+    );
+  }
+
   void _onNavItemTapped(int index) {
     if (index == 3) {
       _showPreferencesSheet();
@@ -50,30 +59,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _selectedIndex,
-            children: _mainPages,
-          ),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 20, bottom: 90),
-              child: FloatingActionButton(
-                heroTag: 'ai_fab',
-                mini: true,
-                backgroundColor: Colors.purple,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const AiAgentScreen()),
-                  );
-                },
-                child: const Icon(Icons.auto_awesome, color: Colors.white),
-              ),
-            ),
+      appBar: AppBar(
+        title: const Text('Skedule'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.workspace_premium),
+            onPressed: _navigateToPayment,
+            tooltip: 'Upgrade to Premium',
           ),
         ],
+      ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _mainPages,
       ),
       floatingActionButton: DraggableFab(
         child: FloatingActionButton(

@@ -32,6 +32,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="io.supabase.skedule" android:host="login-callback" />
             </intent-filter>
+
+            <!-- Thêm Intent Filter cho Payment Result -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="io.supabase.skedule" android:host="payment-result" />
+            </intent-filter>
         </activity>
 
         <meta-data
@@ -40,6 +48,10 @@
     </application>
 
     <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />

@@ -3,10 +3,11 @@ import io
 import base64
 import re
 from dotenv import load_dotenv
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import logging
 
-from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Form, Request
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
@@ -27,6 +28,8 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 
 # Import hàm xử lý thời gian từ module utils
 from utils.thoi_gian_tu_nhien import parse_natural_time
+from app_dependencies import get_current_user_id, engine, supabase
+from payment_service import router as payment_router
 
 # --- 1. CẤU HÌNH & KẾT NỐI ---
 load_dotenv()
@@ -34,31 +37,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-DATABASE_URL = os.getenv("DATABASE_URL")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+# DATABASE_URL, SUPABASE_URL, SUPABASE_KEY are now loaded in app_dependencies.py
 
-if not all([DATABASE_URL, SUPABASE_URL, SUPABASE_KEY, GEMINI_API_KEY]):
-    raise ValueError("❌ Thiếu các biến môi trường cần thiết trong file .env")
+if not GEMINI_API_KEY:
+    raise ValueError("❌ Thiếu GEMINI_API_KEY trong file .env")
 
-engine: Engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# engine and supabase are imported from app_dependencies
+
 llm_brain = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GEMINI_API_KEY, temperature=0.7)
 
 # --- 2. XÁC THỰC NGƯỜI DÙNG ---
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
-    try:
-        user_response = supabase.auth.get_user(token)
-        user_id = user_response.user.id
-        logger.info(f"👤 User ID đã xác thực: {user_id}")
-        return str(user_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token không hợp lệ hoặc đã hết hạn.",
-        )
+# get_current_user_id is imported from app_dependencies
 
 # --- 3. CÁC HÀM XỬ LÝ GIỌNG NÓI (Giữ nguyên) ---
 def clean_text_for_speech(text: str) -> str:
@@ -505,6 +494,9 @@ class ChatResponse(BaseModel):
 @app.get("/")
 def read_root():
     return {"message": "Skedule AI Agent (Full SRS) is running!"}
+
+# Include Payment Router
+app.include_router(payment_router)
 
 @app.post("/chat", response_model=ChatResponse)
 async def handle_chat_request(
