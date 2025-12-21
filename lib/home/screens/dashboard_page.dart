@@ -1,56 +1,143 @@
-// lib/home/screens/dashboard_page.dart
 import 'package:flutter/material.dart';
-import 'package:skedule/widgets/stat_card.dart'; // Import widget
-import 'package:skedule/widgets/task_card.dart'; // Import widget
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skedule/widgets/stat_card.dart';
+import 'package:skedule/widgets/task_card.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
   @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  final _supabase = Supabase.instance.client;
+  bool _isLoading = true;
+
+  int _completedTasks = 0;
+  int _happeningNow = 0;
+  int _missedCount = 0;
+  int _dayStreak = 0;
+  double _productivityScore = 0.0;
+
+  List<dynamic> _comingUpItems = [];
+  List<dynamic> _missedTasksItems = [];
+
+  int _weekCompleted = 0;
+  int _weekActiveDays = 0;
+  int _weekUpcoming = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboardData();
+  }
+
+  Future<void> _fetchDashboardData() async {
+    setState(() => _isLoading = true);
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+
+    try {
+      final tasksResponse = await _supabase.from('tasks').select().eq('user_id', user.id);
+      final eventsResponse = await _supabase.from('events').select().eq('user_id', user.id);
+
+      int completed = 0;
+      int missed = 0;
+      List<dynamic> comingUp = [];
+      List<dynamic> missedList = [];
+      int weekComp = 0;
+      int weekUp = 0;
+
+      for (var task in tasksResponse) {
+        final bool isCompleted = task['is_completed'] ?? false;
+        final DateTime? deadline = task['deadline'] != null ? DateTime.parse(task['deadline']) : null;
+
+        if (isCompleted) {
+          completed++;
+          if (deadline != null && deadline.isAfter(startOfWeek)) weekComp++;
+        } else if (deadline != null) {
+          if (deadline.isBefore(now)) {
+            missed++;
+            missedList.add({...task, 'isTask': true});
+          } else {
+            comingUp.add({...task, 'isTask': true});
+            if (deadline.isAfter(startOfWeek)) weekUp++;
+          }
+        }
+      }
+
+      int happening = 0;
+      for (var event in eventsResponse) {
+        final startTime = DateTime.parse(event['start_time']);
+        final endTime = DateTime.parse(event['end_time']);
+
+        if (startTime.isBefore(now) && endTime.isAfter(now)) {
+          happening++;
+        } else if (startTime.isAfter(now)) {
+          comingUp.add({...event, 'isTask': false});
+        }
+      }
+
+      comingUp.sort((a, b) {
+        final timeA = DateTime.parse(a['isTask'] ? a['deadline'] : a['start_time']);
+        final timeB = DateTime.parse(b['isTask'] ? b['deadline'] : b['start_time']);
+        return timeA.compareTo(timeB);
+      });
+
+      double score = tasksResponse.isEmpty ? 0.0 : (completed / tasksResponse.length) * 100;
+
+      if (mounted) {
+        setState(() {
+          _completedTasks = completed;
+          _happeningNow = happening;
+          _missedCount = missed;
+          _productivityScore = score;
+          _comingUpItems = comingUp.take(3).toList();
+          _missedTasksItems = missedList.take(3).toList();
+          _weekCompleted = weekComp;
+          _weekUpcoming = weekUp;
+          _weekActiveDays = 1;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // Màu nền chính của app
-      backgroundColor: const Color(0xFFF4F6FD),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          children: [
-            // 1. Header
-            _buildHeader(),
-            const SizedBox(height: 24),
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
 
-            // 2. Lưới thống kê
-            _buildStatsGrid(),
-            const SizedBox(height: 24),
-
-            // 3. Phần "Coming Up"
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: _buildSectionHeader(title: 'Coming Up'),
-            ),
-            const SizedBox(height: 16),
-
-            // 4. Danh sách Coming Up
-            _buildComingUpList(),
-
-            // 5. Phần Missed Tasks
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: _buildSectionHeader(title: 'Missed Tasks', count: 3),
-            ),
-            const SizedBox(height: 16),
-
-            // === PHẦN MỚI ĐƯỢC THÊM VÀO ===
-            _buildMissedTasksList(),
-            // ===============================
-
-            const SizedBox(height: 24), // Thêm khoảng cách trước summary card
-
-            // 6. Phần This Week's Summary
-            _buildSummaryCard(),
-          ],
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: 24.0),
+      children: [
+        _buildHeader(),
+        const SizedBox(height: 24),
+        _buildStatsGrid(),
+        const SizedBox(height: 32),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: _buildSectionHeader(title: 'Coming Up'),
         ),
-      ),
+        const SizedBox(height: 16),
+        _buildComingUpList(),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: _buildSectionHeader(title: 'Missed Tasks', count: _missedCount),
+        ),
+        const SizedBox(height: 16),
+        _buildMissedTasksList(),
+        const SizedBox(height: 32),
+        _buildSummaryCard(),
+      ],
     );
   }
 
@@ -58,43 +145,36 @@ class DashboardPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dashboard',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Sunday, October 12, 2025', // Dữ liệu giả
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Dashboard',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF2D3142)),
+                ),
+                Text(
+                  DateFormat('EEEE, MMM d').format(DateTime.now()),
+                  style: const TextStyle(color: Color(0xFF9094A6), fontSize: 14),
+                ),
+              ],
+            ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                  )
-                ]
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
             ),
-            child: const Column(
+            child: Column(
               children: [
                 Text(
-                  '80%',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6E85B7)),
+                  '${_productivityScore.toInt()}%',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF3B82F6)),
                 ),
-                Text('Productivity Score', style: TextStyle(color: Colors.grey)),
+                const Text('Score', style: TextStyle(color: Color(0xFF9094A6), fontSize: 10, fontWeight: FontWeight.bold)),
               ],
             ),
           )
@@ -112,170 +192,96 @@ class DashboardPage extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.3, // Đã điều chỉnh để không bị overflow
-        children: const [
-          StatCard(label: 'Completed', value: '0', icon: Icons.check_circle, iconColor: Color(0xFF6E85B7)),
-          StatCard(label: 'Happening Now', value: '0', icon: Icons.waves, iconColor: Colors.purple),
-          StatCard(label: 'Missed', value: '3', icon: Icons.cancel, iconColor: Colors.redAccent),
-          StatCard(label: 'Day Streak', value: '5', icon: Icons.trending_up, iconColor: Colors.green),
+        childAspectRatio: 1.5, // Tăng tỷ lệ để các card có nhiều không gian hơn
+        children: [
+          StatCard(label: 'Completed', value: '$_completedTasks', icon: Icons.check_circle_outline, iconColor: Colors.blue),
+          StatCard(label: 'Active', value: '$_happeningNow', icon: Icons.bolt, iconColor: Colors.purple),
+          StatCard(label: 'Missed', value: '$_missedCount', icon: Icons.error_outline, iconColor: Colors.redAccent),
+          StatCard(label: 'Streak', value: '$_dayStreak', icon: Icons.local_fire_department_outlined, iconColor: Colors.orange),
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionHeader({required String title, int? count}) {
-    return Row(
-      children: [
-        Icon(
-            title == 'Coming Up' ? Icons.access_time_filled : Icons.error_outline,
-            color: title == 'Missed Tasks' ? Colors.redAccent : Colors.grey[800]
-        ),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
-        ),
-        const Spacer(),
-        if (count != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.redAccent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text('$count', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          )
-      ],
     );
   }
 
   Widget _buildComingUpList() {
-    // Dữ liệu giả - sau này sẽ lấy từ Supabase
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.0),
+    if (_comingUpItems.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Text('Không có lịch trình sắp tới', style: TextStyle(color: Color(0xFF9094A6))),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
-        children: [
-          TaskCard(
-            title: 'Submit assignment',
-            subtitle: '• School',
-            time: 'N/A',
-            location: 'N/A',
-            tag1Text: 'task',
-            tag1Color: Colors.orange,
-            tag2Text: 'high',
-            tag2Color: Colors.red,
-            icon: Icons.check_box_outline_blank,
-            borderColor: Colors.orange,
-            isTask: true,
-          ),
-          TaskCard(
-            title: 'Mathematics 101',
-            subtitle: '• Education',
-            time: '2:00 PM - 3:30 PM',
-            location: 'Room 204',
-            tag1Text: 'class',
-            tag1Color: Colors.purple,
-            tag2Text: '', // Bỏ trống nếu không có tag 2
-            tag2Color: Colors.transparent,
-            icon: Icons.school, // Icon mũ tốt nghiệp
-            borderColor: Colors.purple,
-          ),
-          TaskCard(
-            title: 'Evening Shift',
-            subtitle: '• Work',
-            time: '5:00 PM - 10:00 PM',
-            location: 'Store',
-            tag1Text: 'work shift',
-            tag1Color: Colors.blue,
-            tag2Text: '',
-            tag2Color: Colors.transparent,
-            icon: Icons.work,
-            borderColor: Colors.blue,
-          ),
-        ],
+        children: _comingUpItems.map((item) {
+          final bool isTask = item['isTask'];
+          return TaskCard(
+            title: item['title'] ?? 'Untitled',
+            subtitle: isTask ? 'Task' : 'Event',
+            time: isTask
+                ? DateFormat('hh:mm a').format(DateTime.parse(item['deadline']))
+                : "${DateFormat('hh:mm a').format(DateTime.parse(item['start_time']))}",
+            location: isTask ? '' : (item['description'] ?? ''),
+            tag1Text: isTask ? 'deadline' : item['type'] ?? 'event',
+            tag1Color: isTask ? Colors.orange : Colors.purple,
+            tag2Text: isTask ? (item['priority'] ?? '') : '',
+            tag2Color: Colors.redAccent,
+            icon: isTask ? Icons.task_alt : Icons.event,
+            borderColor: isTask ? Colors.orange : Colors.purple,
+            isTask: isTask,
+          );
+        }).toList(),
       ),
     );
   }
 
-  // === HÀM MỚI ĐỂ HIỂN THỊ CÁC TASK ĐÃ LỠ ===
   Widget _buildMissedTasksList() {
-    // Dữ liệu giả cho các task đã lỡ
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.0),
+    if (_missedTasksItems.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
-        children: [
-          TaskCard(
-            title: 'Complete budget report',
-            subtitle: 'Yesterday • Work',
-            time: 'N/A',
-            location: 'N/A',
+        children: _missedTasksItems.map((item) {
+          return TaskCard(
+            title: item['title'] ?? 'N/A',
+            subtitle: 'Overdue',
+            time: 'Missed',
+            location: '',
             tag1Text: 'high',
             tag1Color: Colors.red,
             tag2Text: '',
             tag2Color: Colors.transparent,
-            icon: Icons.check_box_outline_blank,
-            borderColor: Colors.red, // Viền đỏ cho task đã lỡ
+            icon: Icons.error_outline,
+            borderColor: Colors.red,
             isTask: true,
-          ),
-          TaskCard(
-            title: 'Call dentist for appointment',
-            subtitle: 'Yesterday • Personal',
-            time: 'N/A',
-            location: 'N/A',
-            tag1Text: 'medium',
-            tag1Color: Colors.orange,
-            tag2Text: '',
-            tag2Color: Colors.transparent,
-            icon: Icons.check_box_outline_blank,
-            borderColor: Colors.red, // Viền đỏ cho task đã lỡ
-            isTask: true,
-          ),
-          TaskCard(
-            title: 'Update portfolio website',
-            subtitle: 'Oct 10 • Work',
-            time: 'N/A',
-            location: 'N/A',
-            tag1Text: 'medium',
-            tag1Color: Colors.orange,
-            tag2Text: '',
-            tag2Color: Colors.transparent,
-            icon: Icons.check_box_outline_blank,
-            borderColor: Colors.red, // Viền đỏ cho task đã lỡ
-            isTask: true,
-          ),
-        ],
+          );
+        }).toList(),
       ),
     );
   }
 
-
   Widget _buildSummaryCard() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Card(
-        elevation: 0,
-        color: const Color(0xFFE0E5F1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "This Week's Summary",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _summaryItem('12', 'Completed'),
-                  _summaryItem('5', 'Active Days'),
-                  _summaryItem('10', 'Upcoming'),
-                ],
-              )
-            ],
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE2E6EE),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("This Week's Summary", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2D3142))),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _summaryItem('$_weekCompleted', 'Completed'),
+                _summaryItem('$_weekActiveDays', 'Active'),
+                _summaryItem('$_weekUpcoming', 'Upcoming'),
+              ],
+            )
+          ],
         ),
       ),
     );
@@ -284,9 +290,23 @@ class DashboardPage extends StatelessWidget {
   Widget _summaryItem(String value, String label) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: Colors.grey[700])),
+        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2D3142))),
+        Text(label, style: const TextStyle(color: Color(0xFF9094A6), fontSize: 12, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader({required String title, int? count}) {
+    return Row(
+      children: [
+        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF2D3142))),
+        const SizedBox(width: 10),
+        if (count != null && count > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text('$count', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+          )
       ],
     );
   }

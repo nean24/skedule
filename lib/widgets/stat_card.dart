@@ -20,22 +20,31 @@ class StatCard extends StatelessWidget {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white, // Hoặc màu nền từ Figma
+      color: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        // GIẢI PHÁP: Giảm padding dọc từ 16 xuống 12 để tăng không gian nội dung
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: iconColor, size: 28),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Icon(icon, color: iconColor, size: 26), // Giảm nhẹ size icon
+            const SizedBox(height: 4),
+            // GIẢI PHÁP: Sử dụng Flexible để Text có thể co lại nếu thiếu chỗ
+            Flexible(
+              child: FittedBox( // Đảm bảo số không bị cắt mất
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
             Text(
               label,
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis, // Tránh tràn chữ nếu label quá dài
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
           ],
         ),
