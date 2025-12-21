@@ -56,6 +56,18 @@ class _NoteScreenState extends State<NoteScreen> {
               // TODO: Implement search
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NoteDetailScreen(),
+                ),
+              );
+              _fetchNotes();
+            },
+          ),
         ],
       ),
       body: _isLoading
@@ -93,18 +105,6 @@ class _NoteScreenState extends State<NoteScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const NoteDetailScreen(),
-            ),
-          );
-          _fetchNotes();
-        },
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }

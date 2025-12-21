@@ -28,7 +28,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // Replace with your actual backend URL
       // For Android Emulator use 10.0.2.2
       // For Real Device (Wireless Debugging), use your PC's LAN IP (e.g., 192.168.1.x)
-      const backendUrl = 'http://192.168.123.4:8000'; // <--- THAY 192.168.1.15 BẰNG IP CỦA BẠN
+      
+      // CẤU HÌNH URL BACKEND:
+      // Cách 1: Dùng IP LAN (khi dev chung mạng wifi)
+      // const backendUrl = 'http://192.168.1.15:8000'; 
+      
+      // Cách 2: Dùng Ngrok (khi muốn test ổn định hơn hoặc khác mạng)
+      // Chạy lệnh: ngrok http 8000 -> Copy link https dán vào dưới
+      // const backendUrl = 'https://your-ngrok-id.ngrok-free.app'; 
+      
+      // Cách 3: Dùng Server Render (Đã deploy online)
+      // Nếu .env có VNP_RETURN_URL=https://skedule-payment.onrender.com/payment_return
+      const backendUrl = 'https://skedule-payment.onrender.com';
       
       final response = await http.post(
         Uri.parse('$backendUrl/create_payment_url'),
