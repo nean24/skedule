@@ -36,15 +36,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final user = _supabase.auth.currentUser;
       if (user == null) throw Exception('User not logged in');
 
+      final name = _nameController.text.trim();
       final updates = {
-        'name': _nameController.text.trim(),
+        'name': name,
       };
 
+      // 1. Update auth user metadata (for immediate UI updates via currentUser)
       await _supabase.auth.updateUser(
         UserAttributes(
           data: updates,
         ),
       );
+
+      // 2. Update profiles table (for database consistency)
+      try {
+        await _supabase.from('profiles').update({
+          'name': name,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', user.id);
+      } catch (dbError) {
+        // If updating profiles fails, we might want to log it,
+        // but since auth update succeeded, we can consider it a partial success
+        // or just ignore if the profile row doesn't exist yet (though it should).
+        debugPrint('Error updating profiles table: $dbError');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

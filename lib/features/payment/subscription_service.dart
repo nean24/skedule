@@ -10,17 +10,17 @@ class SubscriptionService {
 
       final response = await _supabase
           .from('subscriptions')
-          .select('plan, status, end_date')
+          .select('status, end_date')
           .eq('user_id', user.id)
           .maybeSingle();
 
       if (response == null) return false;
 
-      final plan = response['plan'] as String?;
       final status = response['status'] as String?;
       final endDateStr = response['end_date'] as String?;
 
-      if (plan == 'premium' && status == 'active' && endDateStr != null) {
+      // Check status and date regardless of plan name
+      if (status == 'active' && endDateStr != null) {
         final endDate = DateTime.parse(endDateStr);
         return endDate.isAfter(DateTime.now());
       }
@@ -39,7 +39,7 @@ class SubscriptionService {
 
       final response = await _supabase
           .from('subscriptions')
-          .select('plan, status, end_date')
+          .select('plan, status, start_date, end_date')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -47,16 +47,22 @@ class SubscriptionService {
 
       final plan = response['plan'] as String?;
       final status = response['status'] as String?;
+      final startDateStr = response['start_date'] as String?;
       final endDateStr = response['end_date'] as String?;
 
       // Check if subscription is active and not expired
       if (status == 'active' && endDateStr != null) {
         final endDate = DateTime.parse(endDateStr);
         if (endDate.isAfter(DateTime.now())) {
-          // Try to map plan code to display name if possible
-          if (plan == 'vip_1_month') return '1 Month';
-          if (plan == 'vip_6_months') return '6 Months';
-          if (plan == 'vip_1_year') return '1 Year';
+          // Infer from dates regardless of plan name
+          if (startDateStr != null) {
+            final startDate = DateTime.parse(startDateStr);
+            final duration = endDate.difference(startDate).inDays;
+
+            if (duration >= 360) return '1 Year';
+            if (duration >= 170) return '6 Months';
+            if (duration >= 25) return '1 Month';
+          }
 
           // Fallback to capitalizing the plan name or returning it as is
           if (plan != null && plan.isNotEmpty) {
