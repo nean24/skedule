@@ -210,26 +210,30 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               children: [
                 _buildStat('127', 'Tasks Done'),
                 _buildStat('12', 'Day Streak'),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _isPremium ? Colors.amber.shade700 : Colors.blue.shade300,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _isPremium ? Colors.amber.shade700 : Colors.blue.shade300,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            _planDetails.isNotEmpty ? _planDetails : (_isPremium ? 'Premium Plan' : 'Free Plan'),
+                            style: const TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
-                        )
-                      : Text(
-                          _planDetails.isNotEmpty ? _planDetails : (_isPremium ? 'Premium Plan' : 'Free Plan'),
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
+                  ),
                 ),
               ],
             )
