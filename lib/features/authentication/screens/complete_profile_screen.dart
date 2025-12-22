@@ -1,4 +1,4 @@
-  // lib/features/authentication/screens/complete_profile_screen.dart
+// lib/features/authentication/screens/complete_profile_screen.dart
 
   import 'dart:io';
   import 'package:flutter/material.dart';
@@ -6,6 +6,8 @@
   import 'package:supabase_flutter/supabase_flutter.dart';
   import 'package:skedule/main.dart';
   import 'package:skedule/home/screens/home_screen.dart';
+  import 'package:provider/provider.dart';
+  import 'package:skedule/features/settings/settings_provider.dart';
 
   class CompleteProfileScreen extends StatefulWidget {
     const CompleteProfileScreen({super.key});
@@ -59,6 +61,7 @@
     Future<void> _saveProfile() async {
       if (!_formKey.currentState!.validate()) return;
       setState(() { _isLoading = true; });
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
 
       try {
         final userId = supabase.auth.currentUser!.id;
@@ -96,7 +99,7 @@
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi lưu hồ sơ: ${error.toString()}'), backgroundColor: Colors.red),
+            SnackBar(content: Text('${settings.strings.translate('error_saving_profile')}${error.toString()}'), backgroundColor: Colors.red),
           );
         }
       } finally {
@@ -106,8 +109,9 @@
 
     @override
     Widget build(BuildContext context) {
+      final settings = Provider.of<SettingsProvider>(context);
       return Scaffold(
-        appBar: AppBar(title: const Text('Hoàn Thiện Hồ Sơ')),
+        appBar: AppBar(title: Text(settings.strings.translate('complete_profile'))),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -126,22 +130,26 @@
                   const SizedBox(height: 24),
                   TextFormField(
                     controller: _nameController,
-                    decoration: const InputDecoration(labelText: 'Tên hiển thị'),
-                    validator: (value) => (value == null || value.isEmpty) ? 'Vui lòng nhập tên' : null,
+                    decoration: InputDecoration(labelText: settings.strings.translate('display_name')),
+                    validator: (value) => (value == null || value.isEmpty) ? settings.strings.translate('enter_name') : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _birthDateController,
-                    decoration: const InputDecoration(labelText: 'Ngày sinh', hintText: 'Nhấn để chọn'),
+                    decoration: InputDecoration(labelText: settings.strings.translate('date_of_birth'), hintText: settings.strings.translate('tap_to_select')),
                     readOnly: true,
                     onTap: () => _selectBirthDate(context),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedGender,
-                    decoration: const InputDecoration(labelText: 'Giới tính'),
+                    decoration: InputDecoration(labelText: settings.strings.translate('gender')),
                     items: ['Nam', 'Nữ', 'Khác'].map((String value) {
-                      return DropdownMenuItem<String>(value: value, child: Text(value));
+                      String displayValue = value;
+                      if (value == 'Nam') displayValue = settings.strings.translate('male');
+                      if (value == 'Nữ') displayValue = settings.strings.translate('female');
+                      if (value == 'Khác') displayValue = settings.strings.translate('other');
+                      return DropdownMenuItem<String>(value: value, child: Text(displayValue));
                     }).toList(),
                     onChanged: (newValue) {
                       setState(() { _selectedGender = newValue; });
@@ -150,7 +158,7 @@
                   const SizedBox(height: 32),
                   _isLoading
                       ? const CircularProgressIndicator()
-                      : ElevatedButton(onPressed: _saveProfile, child: const Text('Hoàn tất')),
+                      : ElevatedButton(onPressed: _saveProfile, child: Text(settings.strings.translate('finish'))),
                 ],
               ),
             ),

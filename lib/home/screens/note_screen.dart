@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 import '../../features/note/models/note.dart';
 import '../../features/note/screens/note_detail_screen.dart';
 import '../../features/note/widgets/note_card.dart';
@@ -36,9 +38,13 @@ class _NoteScreenState extends State<NoteScreen> {
       });
     } catch (e) {
       if (mounted) {
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading notes: $e')),
+          SnackBar(content: Text('${settings.strings.translate('error_loading_notes')}$e')),
         );
+      }
+    } finally {
+      if (mounted) {
         setState(() => _isLoading = false);
       }
     }
@@ -46,9 +52,10 @@ class _NoteScreenState extends State<NoteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ghi chú'),
+        title: Text(settings.strings.translate('note')),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -80,7 +87,7 @@ class _NoteScreenState extends State<NoteScreen> {
                       Icon(Icons.note_alt_outlined, size: 64, color: Colors.grey[400]),
                       const SizedBox(height: 16),
                       Text(
-                        'Chưa có ghi chú nào',
+                        settings.strings.translate('no_notes_yet'),
                         style: TextStyle(color: Colors.grey[600], fontSize: 16),
                       ),
                     ],

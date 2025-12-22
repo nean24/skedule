@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skedule/l10n/app_localizations.dart';
 
 class SettingsProvider with ChangeNotifier {
   final _supabase = Supabase.instance.client;
@@ -17,6 +18,8 @@ class SettingsProvider with ChangeNotifier {
   String get dateFormat => _dateFormat;
 
   String get localeCode => _language == 'Tiếng Việt' ? 'vi' : 'en';
+
+  AppLocalizations get strings => AppLocalizations(localeCode);
 
   // Load settings from Supabase
   Future<void> loadSettings() async {

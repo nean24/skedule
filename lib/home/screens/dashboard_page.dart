@@ -115,6 +115,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
+    final settings = Provider.of<SettingsProvider>(context);
 
     return ListView(
       physics: const BouncingScrollPhysics(),
@@ -122,23 +123,23 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         _buildHeader(),
         const SizedBox(height: 24),
-        _buildStatsGrid(),
+        _buildStatsGrid(settings),
         const SizedBox(height: 32),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: _buildSectionHeader(title: 'Coming Up'),
+          child: _buildSectionHeader(title: settings.strings.translate('coming_up')),
         ),
         const SizedBox(height: 16),
         _buildComingUpList(),
         const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: _buildSectionHeader(title: 'Missed Tasks', count: _missedCount),
+          child: _buildSectionHeader(title: settings.strings.translate('missed_tasks'), count: _missedCount),
         ),
         const SizedBox(height: 16),
         _buildMissedTasksList(),
         const SizedBox(height: 32),
-        _buildSummaryCard(),
+        _buildSummaryCard(settings),
       ],
     );
   }
@@ -153,9 +154,9 @@ class _DashboardPageState extends State<DashboardPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Dashboard',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF2D3142)),
+                Text(
+                  settings.strings.translate('dashboard'),
+                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF2D3142)),
                 ),
                 Text(
                   DateFormat('EEEE, MMM d', settings.localeCode).format(DateTime.now()),
@@ -177,7 +178,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   '${_productivityScore.toInt()}%',
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF3B82F6)),
                 ),
-                const Text('Score', style: TextStyle(color: Color(0xFF9094A6), fontSize: 10, fontWeight: FontWeight.bold)),
+                Text(settings.strings.translate('score'), style: const TextStyle(color: Color(0xFF9094A6), fontSize: 10, fontWeight: FontWeight.bold)),
               ],
             ),
           )
@@ -186,7 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(SettingsProvider settings) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: GridView.count(
@@ -197,10 +198,10 @@ class _DashboardPageState extends State<DashboardPage> {
         mainAxisSpacing: 16,
         childAspectRatio: 1.5, // Tăng tỷ lệ để các card có nhiều không gian hơn
         children: [
-          StatCard(label: 'Completed', value: '$_completedTasks', icon: Icons.check_circle_outline, iconColor: Colors.blue),
-          StatCard(label: 'Active', value: '$_happeningNow', icon: Icons.bolt, iconColor: Colors.purple),
-          StatCard(label: 'Missed', value: '$_missedCount', icon: Icons.error_outline, iconColor: Colors.redAccent),
-          StatCard(label: 'Streak', value: '$_dayStreak', icon: Icons.local_fire_department_outlined, iconColor: Colors.orange),
+          StatCard(label: settings.strings.translate('completed'), value: '$_completedTasks', icon: Icons.check_circle_outline, iconColor: Colors.blue),
+          StatCard(label: settings.strings.translate('active'), value: '$_happeningNow', icon: Icons.bolt, iconColor: Colors.purple),
+          StatCard(label: settings.strings.translate('missed'), value: '$_missedCount', icon: Icons.error_outline, iconColor: Colors.redAccent),
+          StatCard(label: settings.strings.translate('streak'), value: '$_dayStreak', icon: Icons.local_fire_department_outlined, iconColor: Colors.orange),
         ],
       ),
     );
@@ -211,9 +212,9 @@ class _DashboardPageState extends State<DashboardPage> {
     final timeFormat = settings.is24HourFormat ? 'HH:mm' : 'hh:mm a';
 
     if (_comingUpItems.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Text('Không có lịch trình sắp tới', style: TextStyle(color: Color(0xFF9094A6))),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Text(settings.strings.translate('no_schedule_upcoming'), style: const TextStyle(color: Color(0xFF9094A6))),
       );
     }
     return Padding(
@@ -265,7 +266,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(SettingsProvider settings) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -277,14 +278,14 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("This Week's Summary", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2D3142))),
+            Text(settings.strings.translate('this_week_summary'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2D3142))),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _summaryItem('$_weekCompleted', 'Completed'),
-                _summaryItem('$_weekActiveDays', 'Active'),
-                _summaryItem('$_weekUpcoming', 'Upcoming'),
+                _summaryItem('$_weekCompleted', settings.strings.translate('completed')),
+                _summaryItem('$_weekActiveDays', settings.strings.translate('active')),
+                _summaryItem('$_weekUpcoming', settings.strings.translate('upcoming')),
               ],
             )
           ],

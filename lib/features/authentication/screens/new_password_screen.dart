@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skedule/main.dart';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class NewPasswordScreen extends StatefulWidget {
   const NewPasswordScreen({super.key});
@@ -23,6 +25,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() { _isLoading = true; });
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
 
     try {
       // Supabase tự động biết người dùng nào cần đổi mật khẩu dựa vào session từ link.
@@ -34,8 +37,8 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
 
       // 1. Gửi thông báo thành công.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.'),
+        SnackBar(
+          content: Text(settings.strings.translate('password_changed_success')),
           backgroundColor: Colors.green,
         ),
       );
@@ -64,9 +67,10 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo Mật Khẩu Mới'),
+        title: Text(settings.strings.translate('create_new_password')),
         centerTitle: true,
       ),
       body: Center(
@@ -78,24 +82,24 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Vui lòng nhập mật khẩu mới của bạn.',
+                Text(
+                  settings.strings.translate('enter_new_password'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16),
+                  style: const TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 24),
 
                 // Trường nhập mật khẩu mới
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mật khẩu mới',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: settings.strings.translate('new_password'),
+                    border: const OutlineInputBorder(),
                   ),
                   obscureText: true,
                   validator: (value) {
                     if (value == null || value.length < 6) {
-                      return 'Mật khẩu phải có ít nhất 6 ký tự';
+                      return settings.strings.translate('password_min_length');
                     }
                     return null;
                   },
@@ -105,14 +109,14 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
                 // Trường xác nhận mật khẩu
                 TextFormField(
                   controller: _confirmPasswordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Xác nhận mật khẩu',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: settings.strings.translate('confirm_password'),
+                    border: const OutlineInputBorder(),
                   ),
                   obscureText: true,
                   validator: (value) {
                     if (value != _passwordController.text) {
-                      return 'Mật khẩu xác nhận không khớp';
+                      return settings.strings.translate('passwords_mismatch');
                     }
                     return null;
                   },
@@ -128,7 +132,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
                       textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
                   ),
                   onPressed: _updatePassword,
-                  child: const Text('Xác Nhận'),
+                  child: Text(settings.strings.translate('confirm')),
                 ),
               ],
             ),

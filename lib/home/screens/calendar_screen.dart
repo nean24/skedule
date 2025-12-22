@@ -121,6 +121,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // --- GIẢI PHÁP 1: Sử dụng Flexible cho Header để tránh tràn ngang ---
   Widget _buildHeader() {
+    final settings = Provider.of<SettingsProvider>(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
       child: Row(
@@ -135,9 +136,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text('Calendar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textDark), overflow: TextOverflow.ellipsis),
-                      Text('Schedules', style: TextStyle(fontSize: 12, color: AppColors.textLight), overflow: TextOverflow.ellipsis),
+                    children: [
+                      Text(settings.strings.translate('calendar'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textDark), overflow: TextOverflow.ellipsis),
+                      Text(settings.strings.translate('schedules'), style: const TextStyle(fontSize: 12, color: AppColors.textLight), overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -147,7 +148,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           const SizedBox(width: 8),
           Row( // Nút chức năng
             children: [
-              _buildActionBtn(Icons.access_time, 'Templates', isOutlined: true),
+              _buildActionBtn(Icons.access_time, settings.strings.translate('templates'), isOutlined: true),
               const SizedBox(width: 6),
               _buildActionBtn(Icons.add, 'Add', isOutlined: false),
             ],
@@ -368,7 +369,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-        child: const Center(child: Text('No upcoming events', style: TextStyle(color: AppColors.textLight))),
+        child: Center(child: Text(settings.strings.translate('no_upcoming_events'), style: const TextStyle(color: AppColors.textLight))),
       );
     }
 

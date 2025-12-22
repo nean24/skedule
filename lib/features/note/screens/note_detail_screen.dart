@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 import '../models/note.dart';
 
 class NoteDetailScreen extends StatefulWidget {
@@ -31,6 +33,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   }
 
   Future<void> _saveNote() async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     if (_contentController.text.trim().isEmpty) return;
 
     setState(() => _isLoading = true);
@@ -47,7 +50,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       if (widget.note == null) {
         // Create new
         noteData['user_id'] = user.id; // Explicitly set user_id
-        
+
         await _supabase.from('notes').insert(noteData);
       } else {
         // Update existing
@@ -63,7 +66,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving note: $e')),
+          SnackBar(content: Text('${settings.strings.translate('error_saving_note')}: $e')),
         );
       }
     } finally {
@@ -74,21 +77,22 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   }
 
   Future<void> _deleteNote() async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     if (widget.note == null) return;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xóa ghi chú?'),
-        content: const Text('Hành động này không thể hoàn tác.'),
+        title: Text(settings.strings.translate('delete_note_confirm_title')),
+        content: Text(settings.strings.translate('delete_note_confirm_content')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: Text(settings.strings.translate('cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+            child: Text(settings.strings.translate('delete'), style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -101,12 +105,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     try {
       await _supabase.from('notes').delete().eq('id', widget.note!.id);
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.of(context).pop(true); // Return true to indicate deletion
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting note: $e')),
+          SnackBar(content: Text('${settings.strings.translate('error_deleting_note')}$e')),
         );
       }
     } finally {
@@ -118,9 +122,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.note == null ? 'Ghi chú mới' : 'Sửa ghi chú'),
+        title: Text(widget.note == null ? settings.strings.translate('new_note') : settings.strings.translate('edit_note')),
         actions: [
           if (widget.note != null)
             IconButton(

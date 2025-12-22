@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 import '../models/note.dart';
 import '../widgets/note_card.dart';
 import 'note_detail_screen.dart';
@@ -23,6 +25,9 @@ class _NoteListScreenState extends State<NoteListScreen> {
   }
 
   Future<void> _fetchNotes() async {
+    setState(() { _isLoading = true; });
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+
     try {
       final response = await _supabase
           .from('notes')
@@ -38,23 +43,25 @@ class _NoteListScreenState extends State<NoteListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading notes: $e')),
+          SnackBar(content: Text('${settings.strings.translate('error_loading_notes')}$e')),
         );
-        setState(() => _isLoading = false);
       }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Notes'),
+        title: Text(settings.strings.translate('note')),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _notes.isEmpty
-              ? const Center(child: Text('No notes yet'))
+              ? Center(child: Text(settings.strings.translate('no_notes_yet')))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _notes.length,

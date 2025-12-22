@@ -6,6 +6,8 @@ import 'package:skedule/main.dart';
 import 'signup_screen.dart';
 import 'dart:developer';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 // Không cần import AuthGate ở đây nữa
 // import 'package:skedule/auth_gate.dart';
@@ -30,14 +32,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // --- CÁC HÀM LOGIC ---
-  String _translateAuthException(AuthException e) {
+  String _translateAuthException(AuthException e, SettingsProvider settings) {
     if (e.message.contains('Invalid login credentials')) {
-      return 'Email hoặc mật khẩu không chính xác.';
+      return settings.strings.translate('invalid_credentials');
     }
     if (e.message.contains('Email not confirmed')) {
-      return 'Tài khoản chưa được xác thực email.';
+      return settings.strings.translate('email_not_confirmed');
     }
-    return 'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.';
+    return settings.strings.translate('unexpected_error');
   }
 
   void _showErrorSnackBar(String message) {
@@ -49,6 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _googleSignIn() async {
     if (_isLoading) return;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     setState(() { _isLoading = true; });
 
     try {
@@ -60,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
       log('LoginScreen: Google sign-in command finished.');
       // XONG! AuthGate sẽ tự xử lý việc chuyển hướng khi nhận được sự kiện đăng nhập thành công.
     } on AuthException catch (e) {
-      _showErrorSnackBar(_translateAuthException(e));
+      _showErrorSnackBar(_translateAuthException(e, settings));
     } finally {
       // Chỉ set isLoading = false nếu không thành công, vì nếu thành công,
       // màn hình này sẽ bị thay thế, không cần build lại.
@@ -72,6 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signIn() async {
     if (_isLoading) return;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     setState(() { _isLoading = true; });
 
     try {
@@ -83,13 +87,13 @@ class _LoginScreenState extends State<LoginScreen> {
       log('LoginScreen: Password sign-in command finished (SUCCESS).');
       // XONG! AuthGate sẽ tự xử lý việc chuyển hướng.
     } on TimeoutException {
-      _showErrorSnackBar('Lỗi kết nối: Yêu cầu đăng nhập bị Timeout.');
+      _showErrorSnackBar(settings.strings.translate('connection_timeout'));
     } on AuthException catch (e) {
       log('LoginScreen Auth Error: ${e.message}');
-      _showErrorSnackBar(_translateAuthException(e));
+      _showErrorSnackBar(_translateAuthException(e, settings));
     } catch (e) {
       log('LoginScreen General Error: ${e.toString()}');
-      _showErrorSnackBar('Đã xảy ra lỗi không mong muốn: ${e.toString()}');
+      _showErrorSnackBar('${settings.strings.translate('unexpected_error')} ${e.toString()}');
     } finally {
       if (mounted && supabase.auth.currentSession == null) {
         setState(() { _isLoading = false; });
@@ -98,9 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _forgotPassword() async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     final emailForReset = _emailController.text.trim();
     if (emailForReset.isEmpty || !emailForReset.contains('@')) {
-      _showErrorSnackBar('Vui lòng nhập email của bạn vào ô Email trước.');
+      _showErrorSnackBar(settings.strings.translate('enter_email_first'));
       return;
     }
 
@@ -113,14 +118,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã gửi link đặt lại mật khẩu. Vui lòng kiểm tra email.'),
+          SnackBar(
+            content: Text(settings.strings.translate('password_reset_sent')),
             backgroundColor: Colors.green,
           ),
         );
       }
     } on AuthException catch(e) {
-      _showErrorSnackBar(_translateAuthException(e));
+      _showErrorSnackBar(_translateAuthException(e, settings));
     } finally {
       if (mounted) { setState(() { _isLoading = false; }); }
     }
@@ -143,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLoginCard(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Container(
       constraints: const BoxConstraints(maxWidth: 400),
       padding: const EdgeInsets.all(24.0),
@@ -156,21 +162,21 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           Image.asset('assets/app_logo.jpg', height: 60),
           const SizedBox(height: 16),
-          const Text('Welcome to Skedule', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+          Text(settings.strings.translate('welcome_skedule'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
           const SizedBox(height: 8),
-          Text('Sign in to your account', style: TextStyle(color: Colors.grey[600])),
+          Text(settings.strings.translate('sign_in_subtitle'), style: TextStyle(color: Colors.grey[600])),
           const SizedBox(height: 32),
-          _buildTextField(label: 'Email', controller: _emailController),
+          _buildTextField(label: settings.strings.translate('email'), controller: _emailController),
           const SizedBox(height: 16),
-          _buildTextField(label: 'Password', controller: _passwordController, isObscure: true),
+          _buildTextField(label: settings.strings.translate('password'), controller: _passwordController, isObscure: true),
 
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: _isLoading ? null : _forgotPassword,
-              child: const Text(
-                'Forgot Password?',
-                style: TextStyle(color: Color(0xFF4A6C8B)),
+              child: Text(
+                settings.strings.translate('forgot_password'),
+                style: const TextStyle(color: Color(0xFF4A6C8B)),
               ),
             ),
           ),
@@ -187,18 +193,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('Sign In', style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Text(settings.strings.translate('sign_in'), style: const TextStyle(fontSize: 16, color: Colors.white)),
             ),
           ),
           const SizedBox(height: 24),
-          _buildDivider(),
+          _buildDivider(settings),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _isLoading ? null : _googleSignIn,
               icon: Image.asset('assets/google_logo.png', height: 24.0, width: 24.0),
-              label: const Text('Continue with Google', style: TextStyle(color: Color(0xFF333333), fontSize: 16)),
+              label: Text(settings.strings.translate('continue_google'), style: const TextStyle(color: Color(0xFF333333), fontSize: 16)),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 side: BorderSide(color: Colors.grey[300]!),
@@ -210,12 +216,12 @@ class _LoginScreenState extends State<LoginScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text("Don't have an account?"),
+              Text(settings.strings.translate('no_account')),
               TextButton(
                 onPressed: () {
                   Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SignUpScreen()));
                 },
-                child: const Text('Sign up', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A6C8B))),
+                child: Text(settings.strings.translate('sign_up'), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A6C8B))),
               ),
             ],
           ),
@@ -240,12 +246,12 @@ class _LoginScreenState extends State<LoginScreen> {
     ]);
   }
 
-  Widget _buildDivider() {
+  Widget _buildDivider(SettingsProvider settings) {
     return Row(children: [
       const Expanded(child: Divider()),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: Text('OR CONTINUE WITH', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        child: Text(settings.strings.translate('or_continue_with'), style: TextStyle(color: Colors.grey[500], fontSize: 12)),
       ),
       const Expanded(child: Divider()),
     ]);

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skedule/features/payment/subscription_service.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -70,9 +72,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         throw Exception('Failed to create payment URL: ${response.data}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${settings.strings.translate('error')}: $e')),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -82,13 +87,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: Row(
           children: [
             Text(
-              _isPremium ? (_planName ?? 'Premium') : 'Upgrade to Premium',
+              _isPremium ? (_planName ?? settings.strings.translate('premium')) : settings.strings.translate('upgrade_premium'),
               style: const TextStyle(color: Colors.black),
             ),
             if (_isPremium) ...[
@@ -109,68 +116,71 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 10),
-                  const Text(
-                    'Unlock Full Potential',
+                  Text(
+                    settings.strings.translate('unlock_full_potential'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF4A6C8B),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'Get access to exclusive features and remove all limitations.',
+                  Text(
+                    settings.strings.translate('get_access_exclusive'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                   const SizedBox(height: 30),
-                  _buildFeatureItem(Icons.check_circle, 'Unlimited Tasks & Projects'),
-                  _buildFeatureItem(Icons.check_circle, 'Advanced Statistics'),
-                  _buildFeatureItem(Icons.check_circle, 'Priority Support'),
-                  _buildFeatureItem(Icons.check_circle, 'No Ads'),
+                  _buildFeatureItem(Icons.check_circle, settings.strings.translate('full_ai_integration')),
+                  _buildFeatureItem(Icons.check_circle, settings.strings.translate('no_ads')),
+                  _buildFeatureItem(Icons.check_circle, settings.strings.translate('advanced_scheduling')),
+                  _buildFeatureItem(Icons.check_circle, settings.strings.translate('unlimited_tasks')),
                   const SizedBox(height: 40),
-                  const Text(
-                    'Choose Your Plan',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Text(
+                    settings.strings.translate('choose_plan'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
                   _buildPlanCard(
-                    title: 'Monthly',
+                    title: settings.strings.translate('monthly'),
                     price: '50,000 VND',
-                    duration: '/month',
+                    duration: '/${settings.strings.translate('monthly').toLowerCase()}',
                     amount: 50000,
                     description: 'Skedule VIP - 1 Month',
                     color: Colors.blue.shade50,
                     textColor: Colors.blue.shade900,
+                    selectText: settings.strings.translate('select'),
                   ),
                   const SizedBox(height: 16),
                   _buildPlanCard(
-                    title: '6 Months',
+                    title: settings.strings.translate('six_months'),
                     price: '270,000 VND',
-                    duration: '/6 months',
+                    duration: '/6 ${settings.strings.translate('monthly').toLowerCase().replaceAll('monthly', 'months')}', // Approximate
                     amount: 270000,
                     description: 'Skedule VIP - 6 Months',
                     isPopular: true,
-                    saveText: 'Save 10%',
+                    saveText: settings.strings.translate('save_10'),
+                    selectText: settings.strings.translate('select'),
                   ),
                   const SizedBox(height: 16),
                   _buildPlanCard(
-                    title: 'Yearly',
+                    title: settings.strings.translate('yearly'),
                     price: '500,000 VND',
-                    duration: '/year',
+                    duration: '/${settings.strings.translate('yearly').toLowerCase()}',
                     amount: 500000,
                     description: 'Skedule VIP - 1 Year',
                     color: Colors.amber.shade50,
                     textColor: Colors.amber.shade900,
                     borderColor: Colors.amber,
-                    saveText: 'Best Value',
+                    saveText: settings.strings.translate('best_value'),
+                    selectText: settings.strings.translate('select'),
                   ),
                   const SizedBox(height: 30),
-                  const Text(
-                    'Recurring billing, cancel anytime.',
+                  Text(
+                    settings.strings.translate('recurring_billing'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
               ),
@@ -197,6 +207,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     required String duration,
     required int amount,
     required String description,
+    required String selectText,
     bool isPopular = false,
     String? saveText,
     Color? color,
@@ -256,7 +267,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
-                  child: const Text('Select'),
+                  child: Text(selectText),
                 ),
               ],
             ),

@@ -102,7 +102,6 @@ class _MyAppState extends State<MyApp> {
     if (uri.scheme == 'io.supabase.skedule' && uri.host == 'payment-result') {
       // Extract parameters
       final vnpResponseCode = uri.queryParameters['vnp_ResponseCode'];
-      final message = vnpResponseCode == '00' ? 'Payment Successful!' : 'Payment Failed';
       
       // Show dialog or navigate
       // Since we don't have a global navigator key easily accessible here without context,
@@ -115,33 +114,40 @@ class _MyAppState extends State<MyApp> {
 
       navigatorKey.currentState?.push(
         MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text('Payment Result')),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    vnpResponseCode == '00' ? Icons.check_circle : Icons.error,
-                    color: vnpResponseCode == '00' ? Colors.green : Colors.red,
-                    size: 100,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(message, style: const TextStyle(fontSize: 24)),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                       // Quay về màn hình chính và xóa hết các màn hình trước đó để refresh lại trạng thái
-                       // Sử dụng pushNamedAndRemoveUntil để reset stack về AuthGate (hoặc home)
-                       // Điều này sẽ kích hoạt lại AuthGate -> check subscription mới
-                       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                    },
-                    child: const Text('Back to Home'),
-                  ),
-                ],
+          builder: (context) {
+            final settings = Provider.of<SettingsProvider>(context);
+            final message = vnpResponseCode == '00' 
+                ? settings.strings.translate('payment_successful') 
+                : settings.strings.translate('payment_failed');
+            
+            return Scaffold(
+              appBar: AppBar(title: Text(settings.strings.translate('payment_result'))),
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      vnpResponseCode == '00' ? Icons.check_circle : Icons.error,
+                      color: vnpResponseCode == '00' ? Colors.green : Colors.red,
+                      size: 100,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(message, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () {
+                         // Quay về màn hình chính và xóa hết các màn hình trước đó để refresh lại trạng thái
+                         // Sử dụng pushNamedAndRemoveUntil để reset stack về AuthGate (hoặc home)
+                         // Điều này sẽ kích hoạt lại AuthGate -> check subscription mới
+                         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                      },
+                      child: Text(settings.strings.translate('back_to_home')),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       );
     }
@@ -154,7 +160,7 @@ class _MyAppState extends State<MyApp> {
     
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Skedule',
+      title: settings.strings.translate('app_name'),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,

@@ -58,9 +58,10 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     } catch (e) {
       log('Error during sign out: ${e.toString()}', error: e);
       if (context.mounted) {
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi không xác định khi đăng xuất: ${e.toString()}.'),
+            content: Text('${settings.strings.translate('error_sign_out')}: ${e.toString()}.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -93,22 +94,22 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context),
+          _buildHeader(context, settings),
           const SizedBox(height: 16),
-          _buildTabs(),
+          _buildTabs(settings),
           const SizedBox(height: 24),
           
           if (_selectedTab == 'Account') ...[
-            const Text('Account Info', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(settings.strings.translate('account_info'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 16),
-            _buildAccountInfoCard(userInitials, userName, userEmail),
+            _buildAccountInfoCard(userInitials, userName, userEmail, settings),
             const SizedBox(height: 16),
-            _buildInfoTile(icon: Icons.calendar_today_outlined, text: 'Member Since $memberSince'),
+            _buildInfoTile(icon: Icons.calendar_today_outlined, text: '${settings.strings.translate('member_since')} $memberSince'),
             const Divider(height: 32),
             _buildActionTile(
               context: context,
               icon: Icons.person_outline,
-              text: 'Edit Profile',
+              text: settings.strings.translate('edit_profile'),
               onTap: () async {
                 final result = await Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const EditProfileScreen()),
@@ -123,16 +124,16 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             _buildActionTile(
               context: context,
               icon: Icons.logout,
-              text: 'Sign Out',
+              text: settings.strings.translate('sign_out'),
               color: Colors.red,
               onTap: () => _signOut(context),
             ),
           ] else if (_selectedTab == 'Settings') ...[
-            const Text('General Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(settings.strings.translate('general_settings'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 16),
             _buildSettingItem(
               icon: Icons.language,
-              title: 'Language',
+              title: settings.strings.translate('language'),
               trailing: DropdownButton<String>(
                 value: settings.language,
                 underline: const SizedBox(),
@@ -151,7 +152,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             ),
             _buildSettingItem(
               icon: Icons.dark_mode_outlined,
-              title: 'Dark Mode',
+              title: settings.strings.translate('dark_mode'),
               trailing: Switch(
                 value: settings.isDarkMode,
                 onChanged: (value) {
@@ -162,7 +163,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             ),
             _buildSettingItem(
               icon: Icons.access_time,
-              title: '24-Hour Time',
+              title: settings.strings.translate('24_hour_time'),
               trailing: Switch(
                 value: settings.is24HourFormat,
                 onChanged: (value) {
@@ -173,7 +174,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             ),
             _buildSettingItem(
               icon: Icons.date_range,
-              title: 'Date Format',
+              title: settings.strings.translate('date_format'),
               trailing: DropdownButton<String>(
                 value: settings.dateFormat,
                 underline: const SizedBox(),
@@ -192,21 +193,22 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             ),
           ],
 
-          const SizedBox(height: 24),
-          const Center(child: Text('Skedule v1.0.0', style: TextStyle(color: Colors.grey))),
+          const SizedBox(height: 32),
+          Center(child: Text(settings.strings.translate('version'), style: const TextStyle(color: Colors.grey))),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
   // --- CÁC WIDGET PHỤ (ĐÃ ĐƯA VÀO BÊN TRONG CLASS) ---
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, SettingsProvider settings) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Icon(Icons.settings_outlined),
         const SizedBox(width: 8),
-        const Text('Preferences', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(settings.strings.translate('preferences'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const Spacer(),
         IconButton(
           icon: const Icon(Icons.close),
@@ -216,7 +218,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     );
   }
 
-  Widget _buildTabs() {
+  Widget _buildTabs(SettingsProvider settings) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -253,7 +255,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     );
   }
 
-  Widget _buildAccountInfoCard(String initials, String name, String email) {
+  Widget _buildAccountInfoCard(String initials, String name, String email, SettingsProvider settings) {
     return Card(
       color: const Color(0xFF4A6C8B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -297,8 +299,8 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStat('127', 'Tasks Done'),
-                _buildStat('12', 'Day Streak'),
+                _buildStat('127', settings.strings.translate('tasks_done')),
+                _buildStat('12', settings.strings.translate('day_streak')),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
@@ -323,7 +325,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                               const SizedBox(width: 6),
                             ],
                             Text(
-                              _isPremium ? (_planName ?? 'Premium') : 'Free Plan',
+                              _isPremium ? (_planName ?? settings.strings.translate('premium')) : settings.strings.translate('free_plan'),
                               style: TextStyle(
                                 color: _isPremium ? Colors.white : Colors.white.withOpacity(0.9),
                                 fontWeight: FontWeight.bold,

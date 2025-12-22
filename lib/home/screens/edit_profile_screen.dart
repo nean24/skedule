@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -28,6 +30,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _updateProfile() async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     setState(() {
       _isLoading = true;
     });
@@ -63,14 +66,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
+          SnackBar(content: Text(settings.strings.translate('profile_updated'))),
         );
         Navigator.of(context).pop(true); // Return true to indicate success
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile: $e')),
+          SnackBar(content: Text('${settings.strings.translate('error_updating_profile')}: $e')),
         );
       }
     } finally {
@@ -90,9 +93,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: Text(settings.strings.translate('edit_profile')),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -100,9 +104,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Display Name',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: settings.strings.translate('display_name'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
@@ -124,7 +128,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Save Changes'),
+                    : Text(settings.strings.translate('save_changes')),
               ),
             ),
           ],

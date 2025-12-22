@@ -2,8 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:developer'; // Import for log
 import 'package:skedule/main.dart';
-import 'dart:developer';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -38,6 +40,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
 
     try {
       final email = _emailController.text.trim();
@@ -49,21 +52,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ) as bool;
 
       if (mounted && userExists == true) {
-        _showSnack('Tài khoản đã tồn tại. Vui lòng đăng nhập.', color: Colors.orange);
+        _showSnack(settings.strings.translate('account_exists'), color: Colors.orange);
         return;
       }
 
       await supabase.auth.signUp(email: email, password: password);
 
       if (mounted) {
-        _showSnack('Đăng ký thành công! Vui lòng kiểm tra email để xác thực.', color: Colors.green);
+        _showSnack(settings.strings.translate('registration_success'), color: Colors.green);
         Navigator.of(context).pop();
       }
     } on AuthException catch (e) {
-      _showSnack('Lỗi đăng ký: ${e.message}');
+      _showSnack('${settings.strings.translate('registration_error')}${e.message}');
     } catch (error) {
       log('Signup Error: ${error.toString()}', error: error);
-      _showSnack('Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.');
+      _showSnack(settings.strings.translate('unexpected_error'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -86,6 +89,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Widget _buildSignUpCard(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Container(
       constraints: const BoxConstraints(maxWidth: 400),
       padding: const EdgeInsets.all(24.0),
@@ -101,21 +105,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
           children: [
             Image.asset('assets/app_logo.jpg', height: 60),
             const SizedBox(height: 16),
-            const Text('Create your account', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+            Text(settings.strings.translate('create_account'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
             const SizedBox(height: 32),
             _buildTextField(
-              label: 'Email', controller: _emailController, keyboardType: TextInputType.emailAddress,
-              validator: (v) => (v == null || !v.contains('@')) ? 'Email không hợp lệ' : null,
+              label: settings.strings.translate('email'), controller: _emailController, keyboardType: TextInputType.emailAddress,
+              validator: (v) => (v == null || !v.contains('@')) ? settings.strings.translate('invalid_email') : null,
             ),
             const SizedBox(height: 16),
             _buildTextField(
-              label: 'Password', controller: _passwordController, isObscure: true,
-              validator: (v) => (v == null || v.length < 6) ? 'Mật khẩu phải có tối thiểu 6 ký tự' : null,
+              label: settings.strings.translate('password'), controller: _passwordController, isObscure: true,
+              validator: (v) => (v == null || v.length < 6) ? settings.strings.translate('password_min_length') : null,
             ),
             const SizedBox(height: 16),
             _buildTextField(
-              label: 'Confirm Password', controller: _confirmPasswordController, isObscure: true,
-              validator: (v) => (v != _passwordController.text) ? 'Mật khẩu không khớp' : null,
+              label: settings.strings.translate('confirm_password'), controller: _confirmPasswordController, isObscure: true,
+              validator: (v) => (v != _passwordController.text) ? settings.strings.translate('passwords_mismatch') : null,
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -133,17 +137,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
 
                 ),
-                child: const Text('Sign Up', style: TextStyle(fontSize: 16, color: Colors.white)),
+                child: Text(settings.strings.translate('sign_up'), style: const TextStyle(fontSize: 16, color: Colors.white)),
               ),
             ),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text("Already have an account?"),
+                Text(settings.strings.translate('already_have_account')),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Sign in', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A6C8B))),
+                  child: Text(settings.strings.translate('sign_in'), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A6C8B))),
                 ),
               ],
             ),

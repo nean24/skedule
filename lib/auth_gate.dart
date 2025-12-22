@@ -1,6 +1,7 @@
 // lib/auth_gate.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'dart:developer'; // Thêm log để dễ debug
@@ -10,6 +11,7 @@ import 'package:skedule/features/authentication/screens/login_screen.dart';
 import 'package:skedule/features/authentication/screens/new_password_screen.dart';
 import 'package:skedule/features/authentication/screens/complete_profile_screen.dart';
 import 'package:skedule/main.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -98,6 +100,10 @@ class _AuthGateState extends State<AuthGate> {
     });
 
     try {
+      // Load settings when user logs in
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      await settings.loadSettings();
+
       // Truy vấn profile, chỉ cần kiểm tra cột 'name' và maybeSingle()
       // Các cột khác (gender, birth_date) có thể là NULL, không phải là điều kiện cản.
       final Map<String, dynamic>? response = await supabase
