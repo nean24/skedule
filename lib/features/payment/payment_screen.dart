@@ -13,6 +13,7 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoading = false;
   bool _isPremium = false;
+  String? _planName;
   final SubscriptionService _subscriptionService = SubscriptionService();
 
   @override
@@ -23,9 +24,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _checkPremiumStatus() async {
     final isPremium = await _subscriptionService.isPremium();
+    final planName = await _subscriptionService.getActivePlanName();
     if (mounted) {
       setState(() {
         _isPremium = isPremium;
+        _planName = planName;
       });
     }
   }
@@ -84,7 +87,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            const Text('Upgrade to Premium', style: TextStyle(color: Colors.black)),
+            Text(
+              _isPremium ? (_planName ?? 'Premium') : 'Upgrade to Premium',
+              style: const TextStyle(color: Colors.black),
+            ),
             if (_isPremium) ...[
               const SizedBox(width: 8),
               const Icon(Icons.star, color: Colors.amber),
