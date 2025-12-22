@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
 import 'package:skedule/features/payment/subscription_service.dart';
+import 'package:intl/intl.dart';
 
 class PreferencesSheet extends StatefulWidget {
   const PreferencesSheet({super.key});
@@ -67,6 +68,16 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     final userName = user?.userMetadata?['name'] ?? user?.email?.split('@').first ?? 'Người dùng';
     final userInitials = userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U';
 
+    String memberSince = 'N/A';
+    if (user?.createdAt != null) {
+      try {
+        final date = DateTime.parse(user!.createdAt);
+        memberSince = DateFormat('MMMM yyyy').format(date);
+      } catch (e) {
+        log('Error parsing date: $e');
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -81,8 +92,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
           const SizedBox(height: 16),
           _buildAccountInfoCard(userInitials, userName, userEmail),
           const SizedBox(height: 16),
-          _buildInfoTile(icon: Icons.email_outlined, text: userEmail),
-          _buildInfoTile(icon: Icons.calendar_today_outlined, text: 'Member Since January 2024'),
+          _buildInfoTile(icon: Icons.calendar_today_outlined, text: 'Member Since $memberSince'),
           const Divider(height: 32),
           _buildActionTile(
             context: context,
@@ -204,7 +214,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                           ),
                         )
                       : Text(
-                          _isPremium ? 'VIP Plan' : 'Free Plan',
+                          _isPremium ? 'Premium' : 'Free Plan',
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                         ),
