@@ -150,14 +150,18 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final brightness = settings.isDarkMode ? Brightness.dark : Brightness.light;
     
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Skedule',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: brightness,
+        ),
         useMaterial3: true,
-        brightness: settings.isDarkMode ? Brightness.dark : Brightness.light,
+        brightness: brightness,
       ),
       home: const AuthGate(),
       debugShowCheckedModeBanner: false,
