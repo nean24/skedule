@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
 import 'package:skedule/features/payment/subscription_service.dart';
 import 'package:intl/intl.dart';
+import 'package:skedule/home/screens/edit_profile_screen.dart';
 
 class PreferencesSheet extends StatefulWidget {
   const PreferencesSheet({super.key});
@@ -101,7 +102,16 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             context: context,
             icon: Icons.person_outline,
             text: 'Edit Profile',
-            onTap: () { /* TODO: Mở màn hình chỉnh sửa profile */ },
+            onTap: () async {
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+              );
+              if (result == true && mounted) {
+                setState(() {
+                  // Trigger rebuild to update user info
+                });
+              }
+            },
           ),
           _buildActionTile(
             context: context,
@@ -192,7 +202,19 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                     ],
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.edit_outlined, color: Colors.white), onPressed: () {}),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                    );
+                    if (result == true && mounted) {
+                      setState(() {
+                        // Trigger rebuild to update user info
+                      });
+                    }
+                  },
+                ),
               ],
             ),
             const Divider(color: Colors.white30, height: 24),
