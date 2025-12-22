@@ -95,6 +95,11 @@ class _MyAppState extends State<MyApp> {
       // Since we don't have a global navigator key easily accessible here without context,
       // we might need to use a GlobalKey<NavigatorState> or handle this in a widget down the tree.
       // For simplicity, let's assume we use a GlobalKey.
+      
+      // Cập nhật UI ngay lập tức nếu cần thiết (ví dụ: reload lại profile)
+      // Tuy nhiên, việc cập nhật UI nên được thực hiện ở màn hình đích hoặc thông qua State Management.
+      // Ở đây chúng ta chỉ hiển thị thông báo kết quả.
+
       navigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (context) => Scaffold(
@@ -112,7 +117,12 @@ class _MyAppState extends State<MyApp> {
                   Text(message, style: const TextStyle(fontSize: 24)),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                       // Quay về màn hình chính và xóa hết các màn hình trước đó để refresh lại trạng thái
+                       // Sử dụng pushNamedAndRemoveUntil để reset stack về AuthGate (hoặc home)
+                       // Điều này sẽ kích hoạt lại AuthGate -> check subscription mới
+                       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                    },
                     child: const Text('Back to Home'),
                   ),
                 ],
@@ -134,8 +144,11 @@ class _MyAppState extends State<MyApp> {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      // KHÔNG CẦN navigatorKey nữa
-      home: const AuthGate(),
+      // Define routes to ensure '/' works correctly with pushNamedAndRemoveUntil
+      routes: {
+        '/': (context) => const AuthGate(),
+      },
+      // home: const AuthGate(), // Remove home property if using routes with '/'
     );
   }
 }

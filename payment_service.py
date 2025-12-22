@@ -57,6 +57,8 @@ async def payment_return(request: Request):
     vnp = VNPAY(VNP_TMN_CODE, VNP_HASH_SECRET, VNP_URL, VNP_RETURN_URL)
     vnp_params = dict(request.query_params)
     
+    logger.info(f"Payment Return Params: {vnp_params}")
+
     if vnp.validate_response(vnp_params):
         response_code = vnp_params.get('vnp_ResponseCode')
         # Redirect URL scheme for the app
@@ -66,7 +68,7 @@ async def payment_return(request: Request):
             # Payment successful
             try:
                 # Extract info
-                txn_ref = vnp_params.get('vnp_TxnRef')
+                txn_ref = vnp_params.get('vnp_TxnRef')a 
                 amount = int(vnp_params.get('vnp_Amount', 0)) / 100
                 transaction_no = vnp_params.get('vnp_TransactionNo')
                 
@@ -75,32 +77,60 @@ async def payment_return(request: Request):
                     user_id = txn_ref.rsplit('_', 1)[0]
                 else:
                     logger.error(f"Invalid vnp_TxnRef format: {txn_ref}")
-                    return RedirectResponse(url=app_redirect_url)
+                    return RedirectResponse(url=app_redirect_url + "&error=invalid_txn_ref")
+
+                logger.info(f"Processing payment for User ID: {user_id}, Amount: {amount}")
 
                 # Database operations
                 with engine.connect() as connection:
-                    with connection.begin() as transaction:
-                        # 1. Create/Update Subscription
-                        start_date = datetime.now()
-                        end_date = start_date + timedelta(days=30) # Assuming monthly
+                    # Sử dụng context manager để tự động commit/rollback
+                    with connection.begin():
+                        # 1. Check current subscription (Lấy thêm start_date để tính toán)
+                        check_sub_query = text("""
+                            SELECT plan, start_date, end_date, status 
+                            FROM subscriptions 
+                            WHERE user_id = :user_id
+                        """)
+                        current_sub = connection.execute(check_sub_query, {"user_id": user_id}).fetchone()
+
+                        # Determine duration based on amount
+                        days_to_add = 30
+                        if amount >= 500000:
+                            days_to_add = 365
+                        elif amount >= 270000:
+                            days_to_add = 180
                         
-                        # Upsert Subscription
+                        now = datetime.now()
+                        
+                        # Tính toán ngày tháng bằng Python cho an toàn và dễ kiểm soát
+                        final_start_date = now
+                        final_end_date = now + timedelta(days=days_to_add)
+
+                        if current_sub and current_sub.plan == 'vip' and current_sub.status == 'active' and current_sub.end_date and current_sub.end_date > now:
+                            # Extend existing VIP subscription
+                            logger.info("Extending existing VIP subscription")
+                            final_start_date = current_sub.start_date # Giữ nguyên ngày bắt đầu cũ
+                            final_end_date = current_sub.end_date + timedelta(days=days_to_add) # Cộng nối tiếp vào ngày hết hạn cũ
+                        else:
+                            logger.info("Creating new or renewing expired subscription")
+
+                        # Upsert Subscription (Query đơn giản hơn)
                         upsert_sub_query = text("""
                             INSERT INTO subscriptions (user_id, plan, start_date, end_date, status)
-                            VALUES (:user_id, 'premium', :start_date, :end_date, 'active')
+                            VALUES (:user_id, 'vip', :start_date, :end_date, 'active')
                             ON CONFLICT (user_id) 
                             DO UPDATE SET 
-                                plan = EXCLUDED.plan,
-                                start_date = EXCLUDED.start_date,
-                                end_date = EXCLUDED.end_date,
-                                status = EXCLUDED.status
+                                plan = 'vip',
+                                status = 'active',
+                                start_date = :start_date,
+                                end_date = :end_date
                             RETURNING id;
                         """)
                         
                         result = connection.execute(upsert_sub_query, {
                             "user_id": user_id,
-                            "start_date": start_date,
-                            "end_date": end_date
+                            "start_date": final_start_date,
+                            "end_date": final_end_date
                         })
                         subscription_id = result.scalar_one()
                         
@@ -117,13 +147,14 @@ async def payment_return(request: Request):
                             "transaction_id": transaction_no
                         })
                         
-                        transaction.commit()
-                        logger.info(f"Payment processed successfully for user {user_id}")
+                        logger.info(f"Payment processed successfully. Subscription ID: {subscription_id}")
                         
             except Exception as e:
                 logger.error(f"Error processing payment database update: {e}")
-                # Still redirect to app, maybe with error param?
+                # Thêm thông tin lỗi vào URL redirect để debug
+                app_redirect_url += f"&error={e}"
         
         return RedirectResponse(url=app_redirect_url)
     else:
+        logger.error("Invalid VNPAY signature")
         return {"status": "error", "message": "Invalid signature", "data": vnp_params}

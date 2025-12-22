@@ -16,6 +16,23 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool _isPremium = false;
+  final SubscriptionService _subscriptionService = SubscriptionService();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSubscriptionStatus();
+  }
+
+  Future<void> _checkSubscriptionStatus() async {
+    final isPremium = await _subscriptionService.isPremium();
+    if (mounted) {
+      setState(() {
+        _isPremium = isPremium;
+      });
+    }
+  }
 
   // === THAY ĐỔI Ở ĐÂY ===
   // Thay thế widget giữ chỗ bằng CalendarScreen thật
@@ -62,11 +79,27 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Skedule'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.workspace_premium),
-            onPressed: _navigateToPayment,
-            tooltip: 'Upgrade to Premium',
-          ),
+          if (!_isPremium)
+            IconButton(
+              icon: const Icon(Icons.workspace_premium),
+              onPressed: _navigateToPayment,
+              tooltip: 'Upgrade to Premium',
+            ),
+          if (_isPremium)
+             Padding(
+               padding: const EdgeInsets.only(right: 16.0),
+               child: Container(
+                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                 decoration: BoxDecoration(
+                   color: Colors.amber,
+                   borderRadius: BorderRadius.circular(12),
+                 ),
+                 child: const Text(
+                   'VIP',
+                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                 ),
+               ),
+             ),
         ],
       ),
       body: IndexedStack(
