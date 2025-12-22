@@ -46,7 +46,10 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
     super.didChangeDependencies();
     if (_messages.isEmpty) {
       final settings = Provider.of<SettingsProvider>(context, listen: false);
-      _messages.insert(0, ChatMessage(text: settings.strings.translate('ai_greeting'), isUser: false));
+      _messages.insert(
+          0,
+          ChatMessage(
+              text: settings.strings.translate('ai_greeting'), isUser: false));
     }
   }
 
@@ -77,11 +80,11 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     if ((text == null || text.isEmpty) && audioFilePath == null) return;
 
-    if(text != null) _textController.clear();
+    if (text != null) _textController.clear();
 
     setState(() {
       // Nếu là tin nhắn văn bản, thêm vào UI ngay
-      if(text != null) {
+      if (text != null) {
         _messages.insert(0, ChatMessage(text: text, isUser: true));
       }
       _isLoading = true;
@@ -97,7 +100,8 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
       final serverUrl = dotenv.env['AI_SERVER_URL'];
 
       if (serverUrl == null || serverUrl.isEmpty) {
-        _addMessageToChat(settings.strings.translate('error_config_ai_url'), isUser: false);
+        _addMessageToChat(settings.strings.translate('error_config_ai_url'),
+            isUser: false);
         setState(() => _isLoading = false);
         return;
       }
@@ -110,17 +114,21 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
         request.fields['prompt'] = text;
       } else if (audioFilePath != null) {
         request.files.add(await http.MultipartFile.fromPath(
-          'audio_file', audioFilePath, contentType: MediaType('audio', 'm4a'),
+          'audio_file',
+          audioFilePath,
+          contentType: MediaType('audio', 'm4a'),
         ));
       }
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 45));
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 45));
       final responseBody = await streamedResponse.stream.bytesToString();
       final decodedResponse = jsonDecode(responseBody);
 
       if (streamedResponse.statusCode == 200) {
         final String? userPrompt = decodedResponse['user_prompt'];
-        final String responseText = decodedResponse['text_response'] ?? settings.strings.translate('error_no_response');
+        final String responseText = decodedResponse['text_response'] ??
+            settings.strings.translate('error_no_response');
         final String audioBase64 = decodedResponse['audio_base64'] ?? '';
 
         // Nếu input là audio, giờ chúng ta mới thêm tin nhắn của người dùng vào UI
@@ -134,17 +142,24 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
           _playAudio(audioBase64);
         }
       } else {
-        final String errorMessage = decodedResponse['detail'] ?? '${settings.strings.translate('error_unknown_server')} (${streamedResponse.statusCode}).';
-        _addMessageToChat('${settings.strings.translate('error')}: $errorMessage', isUser: false);
+        final String errorMessage = decodedResponse['detail'] ??
+            '${settings.strings.translate('error_unknown_server')} (${streamedResponse.statusCode}).';
+        _addMessageToChat(
+            '${settings.strings.translate('error')}: $errorMessage',
+            isUser: false);
       }
     } on TimeoutException {
-      _addMessageToChat(settings.strings.translate('error_connection_timeout'), isUser: false);
+      _addMessageToChat(settings.strings.translate('error_connection_timeout'),
+          isUser: false);
     } catch (e) {
-      _addMessageToChat("${settings.strings.translate('error_connection')}: $e", isUser: false);
+      _addMessageToChat("${settings.strings.translate('error_connection')}: $e",
+          isUser: false);
       print("--- DEBUG: Lỗi chi tiết: $e");
     } finally {
       if (mounted) {
-        setState(() { _isLoading = false; });
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -161,10 +176,12 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
     } else {
       if (await Permission.microphone.request().isGranted) {
         final dir = await getApplicationDocumentsDirectory();
-        await _audioRecorder.start(const RecordConfig(), path: '${dir.path}/recording.m4a');
+        await _audioRecorder.start(const RecordConfig(),
+            path: '${dir.path}/recording.m4a');
         setState(() => _isRecording = true);
       } else {
-        _addMessageToChat(settings.strings.translate('error_mic_permission'), isUser: false);
+        _addMessageToChat(settings.strings.translate('error_mic_permission'),
+            isUser: false);
       }
     }
   }
@@ -211,12 +228,17 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
               itemBuilder: (_, int index) {
                 final message = _messages[index];
                 return Align(
-                  alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: message.isUser
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                    padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 14.0),
+                    margin: const EdgeInsets.symmetric(
+                        vertical: 4.0, horizontal: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 10.0, horizontal: 14.0),
                     decoration: BoxDecoration(
-                      color: message.isUser ? Colors.blue[100] : Colors.grey[200],
+                      color:
+                          message.isUser ? Colors.blue[100] : Colors.grey[200],
                       borderRadius: BorderRadius.circular(16.0),
                     ),
                     child: Text(message.text),
@@ -244,24 +266,34 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
           Flexible(
             child: TextField(
               controller: _textController,
-              onSubmitted: _isLoading ? null : (text) => _sendMessage(text: text),
-              decoration: const InputDecoration.collapsed(hintText: 'Nhập hoặc giữ nút micro để nói...'),
+              onSubmitted:
+                  _isLoading ? null : (text) => _sendMessage(text: text),
+              decoration: const InputDecoration.collapsed(
+                  hintText: 'Nhập hoặc giữ nút micro để nói...'),
               enabled: !_isLoading,
             ),
           ),
           IconButton(
             icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic),
             onPressed: _isLoading ? null : _handleRecord,
-            color: _isRecording ? Colors.redAccent : Theme.of(context).primaryColor,
+            color: _isRecording
+                ? Colors.redAccent
+                : Theme.of(context).primaryColor,
             iconSize: 28,
           ),
           IconButton(
-            icon: _isLoading ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.0)) : const Icon(Icons.send),
-            onPressed: _isLoading ? null : () => _sendMessage(text: _textController.text),
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.0))
+                : const Icon(Icons.send),
+            onPressed: _isLoading
+                ? null
+                : () => _sendMessage(text: _textController.text),
           )
         ],
       ),
     );
   }
 }
-
