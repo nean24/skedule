@@ -49,12 +49,22 @@ class _AuthGateState extends State<AuthGate> {
       }
 
       // Xử lý SignedOut hoặc UserUpdated (kích hoạt kiểm tra lại)
-      if (event == AuthChangeEvent.signedOut || event == AuthChangeEvent.userUpdated) {
+      if (event == AuthChangeEvent.signedOut) {
         setState(() {
           _isPasswordRecovery = false;
           _nextScreen = const LoginScreen();
           _isLoading = false;
         });
+        return;
+      }
+
+      if (event == AuthChangeEvent.userUpdated) {
+        // Khi user update, không cần logout, chỉ cần reload lại trạng thái nếu cần
+        // Hoặc đơn giản là bỏ qua nếu không cần xử lý gì đặc biệt
+        // Ở đây ta sẽ gọi lại _handleLoggedIn để đảm bảo profile mới nhất được load
+        if (session != null) {
+          await _handleLoggedIn(session.user.id);
+        }
         return;
       }
 
