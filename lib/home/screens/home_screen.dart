@@ -3,15 +3,15 @@ import 'package:skedule/home/screens/calendar_screen.dart';
 import 'package:skedule/home/screens/ai_agent_screen.dart';
 import 'package:skedule/home/screens/dashboard_page.dart';
 import 'package:skedule/home/screens/preferences_screen.dart';
-<<<<<<< HEAD
+
 import 'package:skedule/home/screens/note_screen.dart'; // Import NoteScreen
 import 'package:skedule/features/payment/payment_screen.dart';
 
 import '../../features/payment/subscription_service.dart'; // Import PaymentScreen
-=======
+
 import 'package:skedule/home/screens/note_screen.dart';
 import 'package:skedule/features/payment/payment_screen.dart';
->>>>>>> d1a388f (upd: sua giao dien calendar va tinh chinh AI)
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -104,7 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-<<<<<<< HEAD
           if (!_isPremium)
             IconButton(
               icon: const Icon(Icons.workspace_premium),
@@ -126,13 +125,11 @@ class _HomeScreenState extends State<HomeScreen> {
                  ),
                ),
              ),
-=======
           IconButton(
             icon: const Icon(Icons.workspace_premium, color: Color(0xFF4A6C8B)),
             onPressed: _navigateToPayment,
             tooltip: 'Nâng cấp Premium',
           ),
->>>>>>> d1a388f (upd: sua giao dien calendar va tinh chinh AI)
         ],
       ),
       body: IndexedStack(
