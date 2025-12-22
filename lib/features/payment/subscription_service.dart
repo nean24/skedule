@@ -53,7 +53,16 @@ class SubscriptionService {
       if (status == 'active' && endDateStr != null) {
         final endDate = DateTime.parse(endDateStr);
         if (endDate.isAfter(DateTime.now())) {
-          return plan;
+          // Try to map plan code to display name if possible
+          if (plan == 'vip_1_month') return '1 Month';
+          if (plan == 'vip_6_months') return '6 Months';
+          if (plan == 'vip_1_year') return '1 Year';
+
+          // Fallback to capitalizing the plan name or returning it as is
+          if (plan != null && plan.isNotEmpty) {
+            return plan[0].toUpperCase() + plan.substring(1);
+          }
+          return 'Premium';
         }
       }
 

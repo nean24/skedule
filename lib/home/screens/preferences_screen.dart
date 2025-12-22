@@ -19,7 +19,6 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool _isPremium = false;
   String? _planName;
-  DateTime? _endDate;
   bool _isLoading = true;
 
   @override
@@ -31,12 +30,10 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   Future<void> _fetchSubscriptionStatus() async {
     final isPremium = await _subscriptionService.isPremium();
     final planName = await _subscriptionService.getActivePlanName();
-    final endDate = await _subscriptionService.getSubscriptionEndDate();
     if (mounted) {
       setState(() {
         _isPremium = isPremium;
         _planName = planName;
-        _endDate = endDate;
         _isLoading = false;
       });
     }
@@ -243,32 +240,19 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                           ),
                         )
                       : Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             if (_isPremium) ...[
-                              const Icon(Icons.star, color: Colors.white, size: 16),
-                              const SizedBox(width: 4),
+                              const Icon(Icons.star, color: Colors.white, size: 18),
+                              const SizedBox(width: 6),
                             ],
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _isPremium ? (_planName == 'vip' ? 'Premium' : (_planName ?? 'Premium')) : 'Free Plan',
-                                  style: TextStyle(
-                                    color: _isPremium ? Colors.white : Colors.white.withOpacity(0.9),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (_isPremium && _endDate != null)
-                                  Text(
-                                    'Exp: ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                              ],
+                            Text(
+                              _isPremium ? (_planName ?? 'Premium') : 'Free Plan',
+                              style: TextStyle(
+                                color: _isPremium ? Colors.white : Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
                           ],
                         ),
