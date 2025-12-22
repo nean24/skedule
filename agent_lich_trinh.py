@@ -35,7 +35,7 @@ if not GEMINI_API_KEY:
 
 # Sử dụng model Gemini để xử lý logic
 llm_brain = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash-native-audio-dialog", google_api_key=GEMINI_API_KEY, temperature=0.7)
+    model="gemini-3-flash", google_api_key=GEMINI_API_KEY, temperature=0.7)
 
 # --- 2. XỬ LÝ ÂM THANH ---
 
