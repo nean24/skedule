@@ -6,6 +6,8 @@ import 'dart:developer';
 import 'package:skedule/features/payment/subscription_service.dart';
 import 'package:intl/intl.dart';
 import 'package:skedule/home/screens/edit_profile_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class PreferencesSheet extends StatefulWidget {
   const PreferencesSheet({super.key});
@@ -22,77 +24,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   bool _isLoading = true;
   String _selectedTab = 'Account'; // Track selected tab
 
-  // Settings state (mockup for now, ideally should be persisted)
-  String _language = 'English';
-  bool _isDarkMode = false;
-  bool _is24HourFormat = true;
-  String _dateFormat = 'dd/MM/yyyy';
-
   @override
   void initState() {
     super.initState();
     _fetchSubscriptionStatus();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) return;
-
-      final response = await _supabase
-          .from('profiles')
-          .select('settings_json')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      if (response != null && response['settings_json'] != null) {
-        final settings = response['settings_json'] as Map<String, dynamic>;
-        if (mounted) {
-          setState(() {
-            _language = settings['language'] ?? 'English';
-            _isDarkMode = settings['is_dark_mode'] ?? false;
-            _is24HourFormat = settings['is_24_hour_format'] ?? true;
-            _dateFormat = settings['date_format'] ?? 'dd/MM/yyyy';
-          });
-        }
-      }
-    } catch (e) {
-      log('Error loading settings: $e');
-    }
-  }
-
-  Future<void> _updateSetting(String key, dynamic value) async {
-    try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) return;
-
-      // Update local state first for responsiveness
-      setState(() {
-        if (key == 'language') _language = value;
-        if (key == 'is_dark_mode') _isDarkMode = value;
-        if (key == 'is_24_hour_format') _is24HourFormat = value;
-        if (key == 'date_format') _dateFormat = value;
-      });
-
-      // Prepare new settings object
-      final newSettings = {
-        'language': _language,
-        'is_dark_mode': _isDarkMode,
-        'is_24_hour_format': _is24HourFormat,
-        'date_format': _dateFormat,
-      };
-
-      // Update database
-      await _supabase.from('profiles').update({
-        'settings_json': newSettings,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', user.id);
-
-    } catch (e) {
-      log('Error updating setting $key: $e');
-      // Optionally revert state on error
-    }
+    // Settings are now loaded by SettingsProvider in main.dart
   }
 
   Future<void> _fetchSubscriptionStatus() async {
@@ -135,6 +71,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   // --- GIAO DIỆN CHÍNH ---
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     final user = _supabase.auth.currentUser;
     final userEmail = user?.email ?? 'N/A';
     final userName = user?.userMetadata?['name'] ?? user?.email?.split('@').first ?? 'Người dùng';
@@ -144,7 +81,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     if (user?.createdAt != null) {
       try {
         final date = DateTime.parse(user!.createdAt);
-        memberSince = DateFormat('MMMM yyyy').format(date);
+        memberSince = DateFormat('MMMM yyyy', settings.localeCode).format(date);
       } catch (e) {
         log('Error parsing date: $e');
       }
@@ -197,7 +134,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               icon: Icons.language,
               title: 'Language',
               trailing: DropdownButton<String>(
-                value: _language,
+                value: settings.language,
                 underline: const SizedBox(),
                 items: ['English', 'Tiếng Việt'].map((String value) {
                   return DropdownMenuItem<String>(
@@ -207,7 +144,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                 }).toList(),
                 onChanged: (newValue) {
                   if (newValue != null) {
-                    _updateSetting('language', newValue);
+                    settings.updateSetting('language', newValue);
                   }
                 },
               ),
@@ -216,9 +153,9 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               icon: Icons.dark_mode_outlined,
               title: 'Dark Mode',
               trailing: Switch(
-                value: _isDarkMode,
+                value: settings.isDarkMode,
                 onChanged: (value) {
-                  _updateSetting('is_dark_mode', value);
+                  settings.updateSetting('is_dark_mode', value);
                 },
                 activeColor: const Color(0xFF4A6C8B),
               ),
@@ -227,9 +164,9 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               icon: Icons.access_time,
               title: '24-Hour Time',
               trailing: Switch(
-                value: _is24HourFormat,
+                value: settings.is24HourFormat,
                 onChanged: (value) {
-                  _updateSetting('is_24_hour_format', value);
+                  settings.updateSetting('is_24_hour_format', value);
                 },
                 activeColor: const Color(0xFF4A6C8B),
               ),
@@ -238,7 +175,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               icon: Icons.date_range,
               title: 'Date Format',
               trailing: DropdownButton<String>(
-                value: _dateFormat,
+                value: settings.dateFormat,
                 underline: const SizedBox(),
                 items: ['dd/MM/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd'].map((String value) {
                   return DropdownMenuItem<String>(
@@ -248,7 +185,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                 }).toList(),
                 onChanged: (newValue) {
                   if (newValue != null) {
-                    _updateSetting('date_format', newValue);
+                    settings.updateSetting('date_format', newValue);
                   }
                 },
               ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 // --- BẢNG MÀU CHUẨN THEO THIẾT KẾ ---
 class AppColors {
@@ -176,6 +178,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // --- GIẢI PHÁP 2: Loại bỏ SizedBox cố định ở bộ chọn tháng ---
   Widget _buildMonthNavigator() {
+    final settings = Provider.of<SettingsProvider>(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -186,7 +189,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         Expanded( // Sử dụng Expanded để chữ tự co giãn theo màn hình
           child: Center(
             child: Text(
-              DateFormat('MMMM yyyy').format(_focusedDay),
+              DateFormat('MMMM yyyy', settings.localeCode).format(_focusedDay),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
               overflow: TextOverflow.ellipsis,
             ),
@@ -241,6 +244,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildCalendarGrid() {
+    final settings = Provider.of<SettingsProvider>(context);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -249,6 +253,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       padding: const EdgeInsets.all(8),
       child: TableCalendar(
+        locale: settings.localeCode,
         firstDay: DateTime.utc(2020, 1, 1),
         lastDay: DateTime.utc(2030, 12, 31),
         focusedDay: _focusedDay,
@@ -354,6 +359,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // --- GIẢI PHÁP 3: Sử dụng IntrinsicHeight cho Schedule List ---
   Widget _buildScheduleListFromData() {
+    final settings = Provider.of<SettingsProvider>(context);
     final sortedDays = _eventsByDay.keys.toList()..sort();
     final filteredDays = sortedDays.where((day) => day.isAfter(_selectedDay!.subtract(const Duration(days: 1)))).take(3).toList();
 
@@ -375,7 +381,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: _buildDayBlock(
-              DateFormat('EEE').format(day).toUpperCase(),
+              DateFormat('EEE', settings.localeCode).format(day).toUpperCase(),
               day.day.toString(),
               dayEvents.map((e) {
                 Color color = AppColors.task;

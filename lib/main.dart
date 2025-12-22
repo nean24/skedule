@@ -5,6 +5,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:skedule/auth_gate.dart';
 import 'package:app_links/app_links.dart'; // Import app_links
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
+import 'package:intl/date_symbol_data_local.dart'; // Import for date formatting
 
 // === BƯỚC 1: TẠO MỘT CLASS ĐỂ GHI ĐÈ CÁC QUY TẮC HTTP ===
 // Class này sẽ bảo Flutter bỏ qua các lỗi chứng chỉ SSL.
@@ -27,13 +30,23 @@ Future<void> main() async {
   HttpOverrides.global = MyHttpOverrides();
 
   await dotenv.load(fileName: ".env");
+  
+  // Initialize date formatting for locales
+  await initializeDateFormatting();
 
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SettingsProvider()..loadSettings()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 // KHÔNG CẦN HÀM _listenForAuthEvents ở đây nữa, logic đã chuyển vào AuthGate
@@ -136,19 +149,18 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    
     return MaterialApp(
-      navigatorKey: navigatorKey, // Add navigator key
-      debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       title: 'Skedule',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+        brightness: settings.isDarkMode ? Brightness.dark : Brightness.light,
       ),
-      // Define routes to ensure '/' works correctly with pushNamedAndRemoveUntil
-      routes: {
-        '/': (context) => const AuthGate(),
-      },
-      // home: const AuthGate(), // Remove home property if using routes with '/'
+      home: const AuthGate(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

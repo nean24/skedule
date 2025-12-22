@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skedule/widgets/stat_card.dart';
 import 'package:skedule/widgets/task_card.dart';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -142,6 +144,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildHeader() {
+    final settings = Provider.of<SettingsProvider>(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
@@ -155,7 +158,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF2D3142)),
                 ),
                 Text(
-                  DateFormat('EEEE, MMM d').format(DateTime.now()),
+                  DateFormat('EEEE, MMM d', settings.localeCode).format(DateTime.now()),
                   style: const TextStyle(color: Color(0xFF9094A6), fontSize: 14),
                 ),
               ],
@@ -204,6 +207,9 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildComingUpList() {
+    final settings = Provider.of<SettingsProvider>(context);
+    final timeFormat = settings.is24HourFormat ? 'HH:mm' : 'hh:mm a';
+
     if (_comingUpItems.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(horizontal: 16),
@@ -219,8 +225,8 @@ class _DashboardPageState extends State<DashboardPage> {
             title: item['title'] ?? 'Untitled',
             subtitle: isTask ? 'Task' : 'Event',
             time: isTask
-                ? DateFormat('hh:mm a').format(DateTime.parse(item['deadline']))
-                : "${DateFormat('hh:mm a').format(DateTime.parse(item['start_time']))}",
+                ? DateFormat(timeFormat).format(DateTime.parse(item['deadline']))
+                : "${DateFormat(timeFormat).format(DateTime.parse(item['start_time']))}",
             location: isTask ? '' : (item['description'] ?? ''),
             tag1Text: isTask ? 'deadline' : item['type'] ?? 'event',
             tag1Color: isTask ? Colors.orange : Colors.purple,
