@@ -39,7 +39,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       
       // Cách 3: Dùng Server Render (Đã deploy online)
       // Nếu .env có VNP_RETURN_URL=https://skedule-payment.onrender.com/payment_return
-      const backendUrl = 'https://skedule-payment.onrender.com';
+      const backendUrl = 'https://skedule-payments.onrender.com';
       
       final response = await http.post(
         Uri.parse('$backendUrl/create_payment_url'),

@@ -20,7 +20,7 @@ class SubscriptionService {
       final status = response['status'] as String?;
       final endDateStr = response['end_date'] as String?;
 
-      if (plan == 'vip' && status == 'active' && endDateStr != null) {
+      if (plan == 'premium' && status == 'active' && endDateStr != null) {
         final endDate = DateTime.parse(endDateStr);
         return endDate.isAfter(DateTime.now());
       }
@@ -29,6 +29,23 @@ class SubscriptionService {
     } catch (e) {
       // Log error or handle it silently
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getSubscriptionDetails() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return null;
+
+      final response = await _supabase
+          .from('subscriptions')
+          .select('plan, status, end_date, start_date')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      return null;
     }
   }
 }

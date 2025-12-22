@@ -17,6 +17,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool _isPremium = false;
   bool _isLoading = true;
+  String _planDetails = '';
 
   @override
   void initState() {
@@ -25,10 +26,31 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   }
 
   Future<void> _fetchSubscriptionStatus() async {
-    final isPremium = await _subscriptionService.isPremium();
+    final subDetails = await _subscriptionService.getSubscriptionDetails();
+    
+    bool isPremium = false;
+    String planText = 'Free Plan';
+
+    if (subDetails != null) {
+      final plan = subDetails['plan'] as String?;
+      final status = subDetails['status'] as String?;
+      final endDateStr = subDetails['end_date'] as String?;
+
+      if (plan == 'premium' && status == 'active' && endDateStr != null) {
+        final endDate = DateTime.parse(endDateStr);
+        if (endDate.isAfter(DateTime.now())) {
+          isPremium = true;
+          final daysLeft = endDate.difference(DateTime.now()).inDays;
+          final monthsLeft = (daysLeft / 30).ceil();
+          planText = 'Premium ($monthsLeft months left)';
+        }
+      }
+    }
+
     if (mounted) {
       setState(() {
         _isPremium = isPremium;
+        _planDetails = planText;
         _isLoading = false;
       });
     }
@@ -204,7 +226,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                           ),
                         )
                       : Text(
-                          _isPremium ? 'VIP Plan' : 'Free Plan',
+                          _planDetails.isNotEmpty ? _planDetails : (_isPremium ? 'Premium Plan' : 'Free Plan'),
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                         ),
