@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:skedule/features/payment/subscription_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -11,6 +12,23 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoading = false;
+  bool _isPremium = false;
+  final SubscriptionService _subscriptionService = SubscriptionService();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPremiumStatus();
+  }
+
+  Future<void> _checkPremiumStatus() async {
+    final isPremium = await _subscriptionService.isPremium();
+    if (mounted) {
+      setState(() {
+        _isPremium = isPremium;
+      });
+    }
+  }
 
   Future<void> _initiatePayment(int amount, String orderDesc) async {
     setState(() {
@@ -64,7 +82,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Upgrade to Premium', style: TextStyle(color: Colors.black)),
+        title: Row(
+          children: [
+            const Text('Upgrade to Premium', style: TextStyle(color: Colors.black)),
+            if (_isPremium) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.star, color: Colors.amber),
+            ],
+          ],
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),

@@ -19,6 +19,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool _isPremium = false;
   String? _planName;
+  DateTime? _endDate;
   bool _isLoading = true;
 
   @override
@@ -30,10 +31,12 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   Future<void> _fetchSubscriptionStatus() async {
     final isPremium = await _subscriptionService.isPremium();
     final planName = await _subscriptionService.getActivePlanName();
+    final endDate = await _subscriptionService.getSubscriptionEndDate();
     if (mounted) {
       setState(() {
         _isPremium = isPremium;
         _planName = planName;
+        _endDate = endDate;
         _isLoading = false;
       });
     }
@@ -226,8 +229,9 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _isPremium ? Colors.amber.shade700 : Colors.blue.shade300,
+                    color: _isPremium ? Colors.amber : Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),
+                    border: _isPremium ? null : Border.all(color: Colors.white.withOpacity(0.5)),
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -238,10 +242,35 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : Text(
-                          _isPremium ? (_planName == 'vip' ? 'Premium' : (_planName ?? 'Premium')) : 'Free Plan',
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
+                      : Row(
+                          children: [
+                            if (_isPremium) ...[
+                              const Icon(Icons.star, color: Colors.white, size: 16),
+                              const SizedBox(width: 4),
+                            ],
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _isPremium ? (_planName == 'vip' ? 'Premium' : (_planName ?? 'Premium')) : 'Free Plan',
+                                  style: TextStyle(
+                                    color: _isPremium ? Colors.white : Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (_isPremium && _endDate != null)
+                                  Text(
+                                    'Exp: ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
                 ),
               ],
