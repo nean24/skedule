@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -25,37 +23,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
         throw Exception('User not logged in');
       }
 
-      // Replace with your actual backend URL
-      // For Android Emulator use 10.0.2.2
-      // For Real Device (Wireless Debugging), use your PC's LAN IP (e.g., 192.168.1.x)
-      
-      // CẤU HÌNH URL BACKEND:
-      // Cách 1: Dùng IP LAN (khi dev chung mạng wifi)
-      // const backendUrl = 'http://192.168.1.15:8000'; 
-      
-      // Cách 2: Dùng Ngrok (khi muốn test ổn định hơn hoặc khác mạng)
-      // Chạy lệnh: ngrok http 8000 -> Copy link https dán vào dưới
-      // const backendUrl = 'https://your-ngrok-id.ngrok-free.app'; 
-      
-      // Cách 3: Dùng Server Render (Đã deploy online)
-      // Nếu .env có VNP_RETURN_URL=https://skedule-payment.onrender.com/payment_return
-      const backendUrl = 'https://skedule-payments.onrender.com';
-      
-      final response = await http.post(
-        Uri.parse('$backendUrl/create_payment_url'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${session.accessToken}',
-        },
-        body: jsonEncode({
+      // Gọi Edge Function 'payment-vnpay'
+      final response = await Supabase.instance.client.functions.invoke(
+        'payment-vnpay',
+        body: {
           'amount': amount,
           'order_desc': orderDesc,
           'bank_code': null, // Optional
-        }),
+        },
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      if (response.status == 200) {
+        final data = response.data;
         final paymentUrl = data['payment_url'];
         
         if (await canLaunchUrl(Uri.parse(paymentUrl))) {
@@ -67,7 +46,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           throw Exception('Could not launch payment URL');
         }
       } else {
-        throw Exception('Failed to create payment URL: ${response.body}');
+        throw Exception('Failed to create payment URL: ${response.data}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -83,35 +62,99 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Subscription Plans')),
-      body: Center(
-        child: _isLoading
-            ? const CircularProgressIndicator()
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Upgrade to Premium', style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildPlanCard(
-                    title: '1 Month',
-                    price: '50,000 VND',
-                    amount: 50000,
-                    description: 'Skedule VIP - 1 Month',
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Unlock Full Potential',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4A6C8B),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Get access to exclusive features and remove all limitations.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 30),
+                  _buildFeatureItem(Icons.check_circle, 'Unlimited Tasks & Projects'),
+                  _buildFeatureItem(Icons.check_circle, 'Advanced Statistics'),
+                  _buildFeatureItem(Icons.check_circle, 'Priority Support'),
+                  _buildFeatureItem(Icons.check_circle, 'No Ads'),
+                  const SizedBox(height: 40),
+                  const Text(
+                    'Choose Your Plan',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
+                  _buildPlanCard(
+                    title: 'Monthly',
+                    price: '50,000 VND',
+                    duration: '/month',
+                    amount: 50000,
+                    description: 'Skedule VIP - 1 Month',
+                    color: Colors.blue.shade50,
+                    textColor: Colors.blue.shade900,
+                  ),
+                  const SizedBox(height: 16),
                   _buildPlanCard(
                     title: '6 Months',
                     price: '270,000 VND',
+                    duration: '/6 months',
                     amount: 270000,
                     description: 'Skedule VIP - 6 Months',
+                    isPopular: true,
+                    saveText: 'Save 10%',
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildPlanCard(
-                    title: '1 Year',
+                    title: 'Yearly',
                     price: '500,000 VND',
+                    duration: '/year',
                     amount: 500000,
                     description: 'Skedule VIP - 1 Year',
+                    color: Colors.amber.shade50,
+                    textColor: Colors.amber.shade900,
+                    borderColor: Colors.amber,
+                    saveText: 'Best Value',
+                  ),
+                  const SizedBox(height: 30),
+                  const Text(
+                    'Recurring billing, cancel anytime.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
               ),
+            ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF4A6C8B), size: 24),
+          const SizedBox(width: 12),
+          Text(text, style: const TextStyle(fontSize: 16)),
+        ],
       ),
     );
   }
@@ -119,25 +162,101 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _buildPlanCard({
     required String title,
     required String price,
+    required String duration,
     required int amount,
     required String description,
+    bool isPopular = false,
+    String? saveText,
+    Color? color,
+    Color? textColor,
+    Color? borderColor,
   }) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            Text(price, style: const TextStyle(fontSize: 18, color: Colors.green)),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => _initiatePayment(amount, description),
-              child: const Text('Subscribe Now'),
+    final cardColor = color ?? Colors.white;
+    final textCol = textColor ?? Colors.black;
+    final borderCol = borderColor ?? (isPopular ? const Color(0xFF4A6C8B) : Colors.grey.shade300);
+    final borderWidth = isPopular || borderColor != null ? 2.0 : 1.0;
+
+    return GestureDetector(
+      onTap: () => _initiatePayment(amount, description),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderCol, width: borderWidth),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textCol)),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(price, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: textCol)),
+                          const SizedBox(width: 4),
+                          Text(duration, style: TextStyle(fontSize: 14, color: textCol.withOpacity(0.7))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => _initiatePayment(amount, description),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isPopular ? const Color(0xFF4A6C8B) : Colors.white,
+                    foregroundColor: isPopular ? Colors.white : const Color(0xFF4A6C8B),
+                    side: isPopular ? null : const BorderSide(color: Color(0xFF4A6C8B)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Select'),
+                ),
+              ],
+            ),
+          ),
+          if (saveText != null)
+            Positioned(
+              top: -12,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.amber,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  saveText,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

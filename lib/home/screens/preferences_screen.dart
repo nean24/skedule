@@ -17,6 +17,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   final _supabase = Supabase.instance.client;
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool _isPremium = false;
+  String? _planName;
   bool _isLoading = true;
 
   @override
@@ -27,9 +28,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
 
   Future<void> _fetchSubscriptionStatus() async {
     final isPremium = await _subscriptionService.isPremium();
+    final planName = await _subscriptionService.getActivePlanName();
     if (mounted) {
       setState(() {
         _isPremium = isPremium;
+        _planName = planName;
         _isLoading = false;
       });
     }
@@ -214,7 +217,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                           ),
                         )
                       : Text(
-                          _isPremium ? 'Premium' : 'Free Plan',
+                          _isPremium ? (_planName == 'vip' ? 'Premium' : (_planName ?? 'Premium')) : 'Free Plan',
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                         ),
