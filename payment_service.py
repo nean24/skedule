@@ -68,7 +68,7 @@ async def payment_return(request: Request):
             # Payment successful
             try:
                 # Extract info
-                txn_ref = vnp_params.get('vnp_TxnRef')a 
+                txn_ref = vnp_params.get('vnp_TxnRef')
                 amount = int(vnp_params.get('vnp_Amount', 0)) / 100
                 transaction_no = vnp_params.get('vnp_TransactionNo')
                 
@@ -83,9 +83,30 @@ async def payment_return(request: Request):
 
                 # Database operations
                 with engine.connect() as connection:
-                    # Sử dụng context manager để tự động commit/rollback
-                    with connection.begin():
-                        # 1. Check current subscription (Lấy thêm start_date để tính toán)
+                    # Sử dụng transaction tường minh để kiểm soát lỗi tốt hơn
+                    trans = connection.begin()
+                    try:
+                        # 0. KIỂM TRA VÀ TẠO PROFILE NẾU CHƯA CÓ
+                        # Bảng subscriptions tham chiếu profiles(id), nếu thiếu profile sẽ lỗi FK.
+                        check_profile_query = text("SELECT id FROM profiles WHERE id = :user_id")
+                        profile_exists = connection.execute(check_profile_query, {"user_id": user_id}).fetchone()
+                        
+                        if not profile_exists:
+                            logger.warning(f"Profile missing for user {user_id}. Creating default profile.")
+                            # Lấy email từ auth.users nếu có thể (ở đây ta không truy cập được auth.users trực tiếp dễ dàng qua SQL thuần nếu không có quyền)
+                            # Tạo profile dummy để pass FK constraint
+                            create_profile_query = text("""
+                                INSERT INTO profiles (id, name, email)
+                                VALUES (:user_id, :name, :email)
+                            """)
+                            # Lưu ý: Email và Name ở đây là placeholder, lý tưởng nhất là lấy từ metadata hoặc auth
+                            connection.execute(create_profile_query, {
+                                "user_id": user_id,
+                                "name": "User", 
+                                "email": f"{user_id}@placeholder.com" 
+                            })
+
+                        # 1. Check current subscription
                         check_sub_query = text("""
                             SELECT plan, start_date, end_date, status 
                             FROM subscriptions 
@@ -102,19 +123,19 @@ async def payment_return(request: Request):
                         
                         now = datetime.now()
                         
-                        # Tính toán ngày tháng bằng Python cho an toàn và dễ kiểm soát
+                        # Tính toán ngày tháng
                         final_start_date = now
                         final_end_date = now + timedelta(days=days_to_add)
 
                         if current_sub and current_sub.plan == 'vip' and current_sub.status == 'active' and current_sub.end_date and current_sub.end_date > now:
                             # Extend existing VIP subscription
                             logger.info("Extending existing VIP subscription")
-                            final_start_date = current_sub.start_date # Giữ nguyên ngày bắt đầu cũ
-                            final_end_date = current_sub.end_date + timedelta(days=days_to_add) # Cộng nối tiếp vào ngày hết hạn cũ
+                            final_start_date = current_sub.start_date
+                            final_end_date = current_sub.end_date + timedelta(days=days_to_add)
                         else:
                             logger.info("Creating new or renewing expired subscription")
 
-                        # Upsert Subscription (Query đơn giản hơn)
+                        # Upsert Subscription
                         upsert_sub_query = text("""
                             INSERT INTO subscriptions (user_id, plan, start_date, end_date, status)
                             VALUES (:user_id, 'vip', :start_date, :end_date, 'active')
@@ -147,11 +168,16 @@ async def payment_return(request: Request):
                             "transaction_id": transaction_no
                         })
                         
+                        trans.commit()
                         logger.info(f"Payment processed successfully. Subscription ID: {subscription_id}")
                         
+                    except Exception as db_err:
+                        trans.rollback()
+                        logger.error(f"Database transaction failed: {db_err}")
+                        raise db_err
+                        
             except Exception as e:
-                logger.error(f"Error processing payment database update: {e}")
-                # Thêm thông tin lỗi vào URL redirect để debug
+                logger.error(f"Error processing payment: {e}")
                 app_redirect_url += f"&error={e}"
         
         return RedirectResponse(url=app_redirect_url)

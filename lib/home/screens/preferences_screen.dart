@@ -1,11 +1,38 @@
 // lib/home/screens/preferences_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:skedule/main.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
+import 'package:skedule/features/payment/subscription_service.dart';
 
-class PreferencesSheet extends StatelessWidget {
+class PreferencesSheet extends StatefulWidget {
   const PreferencesSheet({super.key});
+
+  @override
+  State<PreferencesSheet> createState() => _PreferencesSheetState();
+}
+
+class _PreferencesSheetState extends State<PreferencesSheet> {
+  final _supabase = Supabase.instance.client;
+  final SubscriptionService _subscriptionService = SubscriptionService();
+  bool _isPremium = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSubscriptionStatus();
+  }
+
+  Future<void> _fetchSubscriptionStatus() async {
+    final isPremium = await _subscriptionService.isPremium();
+    if (mounted) {
+      setState(() {
+        _isPremium = isPremium;
+        _isLoading = false;
+      });
+    }
+  }
 
   // --- HÀM LOGOUT ĐÃ ĐƯỢC VIẾT LẠI, ĐƠN GIẢN VÀ ĐÚNG ĐẮN ---
   Future<void> _signOut(BuildContext context) async {
@@ -17,7 +44,7 @@ class PreferencesSheet extends StatelessWidget {
 
       // 2. Chỉ cần gọi signOut. AuthGate sẽ tự động phát hiện sự kiện
       // và chuyển người dùng về màn hình LoginScreen.
-      await supabase.auth.signOut();
+      await _supabase.auth.signOut();
 
     } catch (e) {
       log('Error during sign out: ${e.toString()}', error: e);
@@ -35,7 +62,7 @@ class PreferencesSheet extends StatelessWidget {
   // --- GIAO DIỆN CHÍNH ---
   @override
   Widget build(BuildContext context) {
-    final user = supabase.auth.currentUser;
+    final user = _supabase.auth.currentUser;
     final userEmail = user?.email ?? 'N/A';
     final userName = user?.userMetadata?['name'] ?? user?.email?.split('@').first ?? 'Người dùng';
     final userInitials = userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U';
@@ -164,10 +191,23 @@ class PreferencesSheet extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade300,
+                    color: _isPremium ? Colors.amber.shade700 : Colors.blue.shade300,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text('Free Plan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          _isPremium ? 'VIP Plan' : 'Free Plan',
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
                 ),
               ],
             )
