@@ -178,44 +178,52 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
 
   Widget _buildAccountInfoCard(String initials, String name, String email) {
     return Card(
+      elevation: 4,
       color: const Color(0xFF4A6C8B),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
             Row(
               children: [
                 CircleAvatar(
-                  radius: 24,
+                  radius: 30,
                   backgroundColor: Colors.white,
-                  child: Text(initials, style: const TextStyle(color: Color(0xFF4A6C8B), fontWeight: FontWeight.bold, fontSize: 20)),
+                  child: Text(initials, style: const TextStyle(color: Color(0xFF4A6C8B), fontWeight: FontWeight.bold, fontSize: 24)),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text(email, style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                      Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                      const SizedBox(height: 4),
+                      Text(email, style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14)),
                     ],
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.edit_outlined, color: Colors.white), onPressed: () {}),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white), 
+                  onPressed: () {
+                    // TODO: Implement edit profile
+                  }
+                ),
               ],
             ),
-            const Divider(color: Colors.white30, height: 24),
+            const Divider(color: Colors.white24, height: 32, thickness: 1),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildStat('127', 'Tasks Done'),
                 _buildStat('12', 'Day Streak'),
                 Flexible(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: _isPremium ? Colors.amber.shade700 : Colors.blue.shade300,
+                      color: _isPremium ? Colors.amber.shade700 : Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
+                      border: _isPremium ? null : Border.all(color: Colors.white30),
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -226,12 +234,23 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                               color: Colors.white,
                             ),
                           )
-                        : Text(
-                            _planDetails.isNotEmpty ? _planDetails : (_isPremium ? 'Premium Plan' : 'Free Plan'),
-                            style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.bold),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_isPremium) ...[
+                                const Icon(Icons.star, color: Colors.white, size: 16),
+                                const SizedBox(width: 4),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  _planDetails.isNotEmpty ? _planDetails : (_isPremium ? 'Premium' : 'Free Plan'),
+                                  style: const TextStyle(
+                                      color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ],
                           ),
                   ),
                 ),
