@@ -20,11 +20,79 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   bool _isPremium = false;
   String? _planName;
   bool _isLoading = true;
+  String _selectedTab = 'Account'; // Track selected tab
+
+  // Settings state (mockup for now, ideally should be persisted)
+  String _language = 'English';
+  bool _isDarkMode = false;
+  bool _is24HourFormat = true;
+  String _dateFormat = 'dd/MM/yyyy';
 
   @override
   void initState() {
     super.initState();
     _fetchSubscriptionStatus();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final response = await _supabase
+          .from('profiles')
+          .select('settings_json')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (response != null && response['settings_json'] != null) {
+        final settings = response['settings_json'] as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            _language = settings['language'] ?? 'English';
+            _isDarkMode = settings['is_dark_mode'] ?? false;
+            _is24HourFormat = settings['is_24_hour_format'] ?? true;
+            _dateFormat = settings['date_format'] ?? 'dd/MM/yyyy';
+          });
+        }
+      }
+    } catch (e) {
+      log('Error loading settings: $e');
+    }
+  }
+
+  Future<void> _updateSetting(String key, dynamic value) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      // Update local state first for responsiveness
+      setState(() {
+        if (key == 'language') _language = value;
+        if (key == 'is_dark_mode') _isDarkMode = value;
+        if (key == 'is_24_hour_format') _is24HourFormat = value;
+        if (key == 'date_format') _dateFormat = value;
+      });
+
+      // Prepare new settings object
+      final newSettings = {
+        'language': _language,
+        'is_dark_mode': _isDarkMode,
+        'is_24_hour_format': _is24HourFormat,
+        'date_format': _dateFormat,
+      };
+
+      // Update database
+      await _supabase.from('profiles').update({
+        'settings_json': newSettings,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+
+    } catch (e) {
+      log('Error updating setting $key: $e');
+      // Optionally revert state on error
+    }
   }
 
   Future<void> _fetchSubscriptionStatus() async {
@@ -92,34 +160,101 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
           const SizedBox(height: 16),
           _buildTabs(),
           const SizedBox(height: 24),
-          const Text('Account Info', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          const SizedBox(height: 16),
-          _buildAccountInfoCard(userInitials, userName, userEmail),
-          const SizedBox(height: 16),
-          _buildInfoTile(icon: Icons.calendar_today_outlined, text: 'Member Since $memberSince'),
-          const Divider(height: 32),
-          _buildActionTile(
-            context: context,
-            icon: Icons.person_outline,
-            text: 'Edit Profile',
-            onTap: () async {
-              final result = await Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-              );
-              if (result == true && mounted) {
-                setState(() {
-                  // Trigger rebuild to update user info
-                });
-              }
-            },
-          ),
-          _buildActionTile(
-            context: context,
-            icon: Icons.logout,
-            text: 'Sign Out',
-            color: Colors.red,
-            onTap: () => _signOut(context),
-          ),
+          
+          if (_selectedTab == 'Account') ...[
+            const Text('Account Info', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 16),
+            _buildAccountInfoCard(userInitials, userName, userEmail),
+            const SizedBox(height: 16),
+            _buildInfoTile(icon: Icons.calendar_today_outlined, text: 'Member Since $memberSince'),
+            const Divider(height: 32),
+            _buildActionTile(
+              context: context,
+              icon: Icons.person_outline,
+              text: 'Edit Profile',
+              onTap: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                );
+                if (result == true && mounted) {
+                  setState(() {
+                    // Trigger rebuild to update user info
+                  });
+                }
+              },
+            ),
+            _buildActionTile(
+              context: context,
+              icon: Icons.logout,
+              text: 'Sign Out',
+              color: Colors.red,
+              onTap: () => _signOut(context),
+            ),
+          ] else if (_selectedTab == 'Settings') ...[
+            const Text('General Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 16),
+            _buildSettingItem(
+              icon: Icons.language,
+              title: 'Language',
+              trailing: DropdownButton<String>(
+                value: _language,
+                underline: const SizedBox(),
+                items: ['English', 'Tiếng Việt'].map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  if (newValue != null) {
+                    _updateSetting('language', newValue);
+                  }
+                },
+              ),
+            ),
+            _buildSettingItem(
+              icon: Icons.dark_mode_outlined,
+              title: 'Dark Mode',
+              trailing: Switch(
+                value: _isDarkMode,
+                onChanged: (value) {
+                  _updateSetting('is_dark_mode', value);
+                },
+                activeColor: const Color(0xFF4A6C8B),
+              ),
+            ),
+            _buildSettingItem(
+              icon: Icons.access_time,
+              title: '24-Hour Time',
+              trailing: Switch(
+                value: _is24HourFormat,
+                onChanged: (value) {
+                  _updateSetting('is_24_hour_format', value);
+                },
+                activeColor: const Color(0xFF4A6C8B),
+              ),
+            ),
+            _buildSettingItem(
+              icon: Icons.date_range,
+              title: 'Date Format',
+              trailing: DropdownButton<String>(
+                value: _dateFormat,
+                underline: const SizedBox(),
+                items: ['dd/MM/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd'].map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  if (newValue != null) {
+                    _updateSetting('date_format', newValue);
+                  }
+                },
+              ),
+            ),
+          ],
+
           const SizedBox(height: 24),
           const Center(child: Text('Skedule v1.0.0', style: TextStyle(color: Colors.grey))),
         ],
@@ -154,9 +289,9 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildTabButton('Account', isSelected: true),
-          _buildTabButton('Settings'),
-          _buildTabButton('Theme'),
+          _buildTabButton('Account', isSelected: _selectedTab == 'Account'),
+          _buildTabButton('Settings', isSelected: _selectedTab == 'Settings'),
+          // _buildTabButton('Theme'), // Merged into Settings for simplicity
         ],
       ),
     );
@@ -165,7 +300,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   Widget _buildTabButton(String text, {bool isSelected = false}) {
     return Expanded(
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: () {
+          setState(() {
+            _selectedTab = text;
+          });
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: isSelected ? Colors.white : Colors.transparent,
           foregroundColor: isSelected ? const Color(0xFF4A6C8B) : Colors.grey.shade700,
@@ -290,6 +429,24 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
       leading: Icon(icon, color: color ?? Theme.of(context).iconTheme.color),
       title: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w500)),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildSettingItem({required IconData icon, required String title, required Widget trailing}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.grey.shade700),
+            const SizedBox(width: 16),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+            trailing,
+          ],
+        ),
+      ),
     );
   }
 } // <--- Dấu ngoặc quan trọng kết thúc class PreferencesSheet
