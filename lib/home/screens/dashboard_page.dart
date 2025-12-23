@@ -116,36 +116,46 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
 
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(vertical: 24.0),
-      children: [
-        _buildHeader(),
-        const SizedBox(height: 24),
-        _buildStatsGrid(settings),
-        const SizedBox(height: 32),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: _buildSectionHeader(title: settings.strings.translate('coming_up')),
-        ),
-        const SizedBox(height: 16),
-        _buildComingUpList(),
-        const SizedBox(height: 24),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: _buildSectionHeader(title: settings.strings.translate('missed_tasks'), count: _missedCount),
-        ),
-        const SizedBox(height: 16),
-        _buildMissedTasksList(),
-        const SizedBox(height: 32),
-        _buildSummaryCard(settings),
-      ],
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 24.0),
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 24),
+          _buildStatsGrid(settings),
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: _buildSectionHeader(title: settings.strings.translate('coming_up')),
+          ),
+          const SizedBox(height: 16),
+          _buildComingUpList(),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: _buildSectionHeader(title: settings.strings.translate('missed_tasks'), count: _missedCount),
+          ),
+          const SizedBox(height: 16),
+          _buildMissedTasksList(),
+          const SizedBox(height: 32),
+          _buildSummaryCard(settings),
+        ],
+      ),
     );
   }
 
   Widget _buildHeader() {
     final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+    final subTextColor = isDark ? Colors.grey[400] : const Color(0xFF9094A6);
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
@@ -156,11 +166,11 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 Text(
                   settings.strings.translate('dashboard'),
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF2D3142)),
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: textColor),
                 ),
                 Text(
                   DateFormat('EEEE, MMM d', settings.localeCode).format(DateTime.now()),
-                  style: const TextStyle(color: Color(0xFF9094A6), fontSize: 14),
+                  style: TextStyle(color: subTextColor, fontSize: 14),
                 ),
               ],
             ),
@@ -168,7 +178,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardColor,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
             ),
@@ -178,7 +188,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   '${_productivityScore.toInt()}%',
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF3B82F6)),
                 ),
-                Text(settings.strings.translate('score'), style: const TextStyle(color: Color(0xFF9094A6), fontSize: 10, fontWeight: FontWeight.bold)),
+                Text(settings.strings.translate('score'), style: TextStyle(color: subTextColor, fontSize: 10, fontWeight: FontWeight.bold)),
               ],
             ),
           )
@@ -209,12 +219,14 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildComingUpList() {
     final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
     final timeFormat = settings.is24HourFormat ? 'HH:mm' : 'hh:mm a';
+    final emptyTextColor = isDark ? Colors.grey[400] : const Color(0xFF9094A6);
 
     if (_comingUpItems.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(settings.strings.translate('no_schedule_upcoming'), style: const TextStyle(color: Color(0xFF9094A6))),
+        child: Text(settings.strings.translate('no_schedule_upcoming'), style: TextStyle(color: emptyTextColor)),
       );
     }
     return Padding(
@@ -267,25 +279,29 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildSummaryCard(SettingsProvider settings) {
+    final isDark = settings.isDarkMode;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFE2E6EE);
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFFE2E6EE),
+          color: cardColor,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(settings.strings.translate('this_week_summary'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF2D3142))),
+            Text(settings.strings.translate('this_week_summary'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textColor)),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _summaryItem('$_weekCompleted', settings.strings.translate('completed')),
-                _summaryItem('$_weekActiveDays', settings.strings.translate('active')),
-                _summaryItem('$_weekUpcoming', settings.strings.translate('upcoming')),
+                _summaryItem('$_weekCompleted', settings.strings.translate('completed'), isDark),
+                _summaryItem('$_weekActiveDays', settings.strings.translate('active'), isDark),
+                _summaryItem('$_weekUpcoming', settings.strings.translate('upcoming'), isDark),
               ],
             )
           ],
@@ -294,19 +310,26 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _summaryItem(String value, String label) {
+  Widget _summaryItem(String value, String label, bool isDark) {
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+    final labelColor = isDark ? Colors.grey[400] : const Color(0xFF9094A6);
+
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2D3142))),
-        Text(label, style: const TextStyle(color: Color(0xFF9094A6), fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
+        Text(label, style: TextStyle(color: labelColor, fontSize: 12, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
   Widget _buildSectionHeader({required String title, int? count}) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+
     return Row(
       children: [
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF2D3142))),
+        Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor)),
         const SizedBox(width: 10),
         if (count != null && count > 0)
           Container(
