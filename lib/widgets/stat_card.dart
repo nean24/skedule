@@ -1,4 +1,3 @@
-// lib/widgets/stat_card.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
@@ -31,28 +30,29 @@ class StatCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: backgroundColor,
       child: Padding(
-        // GIẢI PHÁP: Giảm padding dọc từ 16 xuống 12 để tăng không gian nội dung
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: iconColor, size: 26), // Giảm nhẹ size icon
+            Icon(icon, color: iconColor, size: 26),
             const SizedBox(height: 4),
-            // GIẢI PHÁP: Sử dụng Flexible để Text có thể co lại nếu thiếu chỗ
             Flexible(
-              child: FittedBox( // Đảm bảo số không bị cắt mất
+              child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   value,
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: textColor),
                 ),
               ),
             ),
             Text(
               label,
               maxLines: 1,
-              overflow: TextOverflow.ellipsis, // Tránh tràn chữ nếu label quá dài
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(color: labelColor, fontSize: 13),
             ),
           ],

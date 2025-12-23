@@ -1,4 +1,3 @@
-// lib/widgets/task_card.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
@@ -61,21 +60,26 @@ class TaskCard extends StatelessWidget {
         child: Row(
           children: [
             if (isTask)
-              Checkbox(value: false, onChanged: (val) {}, visualDensity: VisualDensity.compact)
+              Checkbox(
+                  value: false,
+                  onChanged: (val) {},
+                  visualDensity: VisualDensity.compact)
             else
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Icon(icon, color: iconColor, size: 20),
               ),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min, // Đảm bảo column không chiếm quá nhiều chỗ
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: textColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -85,25 +89,28 @@ class TaskCard extends StatelessWidget {
                     maxLines: 1,
                   ),
                   const SizedBox(height: 6),
-                  // GIẢI PHÁP: Wrap Row thời gian/địa điểm để tránh tràn ngang đẩy thẻ xuống
                   Wrap(
                     spacing: 12,
                     runSpacing: 4,
                     children: [
-                      _buildInfoRow(Icons.access_time, time, subtitleColor ?? Colors.grey),
-                      _buildInfoRow(Icons.location_on, location, subtitleColor ?? Colors.grey),
+                      _buildInfoRow(Icons.access_time, time,
+                          subtitleColor ?? Colors.grey),
+                      if (location.isNotEmpty)
+                        _buildInfoRow(Icons.location_on, location,
+                            subtitleColor ?? Colors.grey),
                     ],
                   ),
                 ],
               ),
             ),
-
             const SizedBox(width: 8),
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (tag1Text.isNotEmpty) _buildTag(tag1Text, tag1Color),
-                if (tag2Text.isNotEmpty) const SizedBox(height: 4),
+                if (tag2Text.isNotEmpty && tag1Text.isNotEmpty)
+                  const SizedBox(height: 4),
                 if (tag2Text.isNotEmpty) _buildTag(tag2Text, tag2Color),
               ],
             )
@@ -137,7 +144,8 @@ class TaskCard extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10),
+        style:
+            TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10),
       ),
     );
   }
