@@ -60,13 +60,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
         final data = response.data;
         final paymentUrl = data['payment_url'];
         
-        if (await canLaunchUrl(Uri.parse(paymentUrl))) {
-          await launchUrl(
-            Uri.parse(paymentUrl),
-            mode: LaunchMode.externalApplication, // Open in external browser to handle deep links correctly
-          );
+        // Thêm kiểm tra null và kiểu String
+        if (paymentUrl != null && paymentUrl is String) {
+          if (await canLaunchUrl(Uri.parse(paymentUrl))) {
+            await launchUrl(
+              Uri.parse(paymentUrl),
+              mode: LaunchMode.externalApplication, // Open in external browser to handle deep links correctly
+            );
+          } else {
+            throw Exception('Could not launch payment URL');
+          }
         } else {
-          throw Exception('Could not launch payment URL');
+          throw Exception('Payment URL is missing or invalid');
         }
       } else {
         throw Exception('Failed to create payment URL: ${response.data}');
