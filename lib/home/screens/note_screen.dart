@@ -26,9 +26,14 @@ class _NoteScreenState extends State<NoteScreen> {
 
   Future<void> _fetchNotes() async {
     try {
+      // --- QUERY MỚI: JOIN VỚI CÁC BẢNG KHÁC ---
+      // Cú pháp select lồng nhau của Supabase:
+      // events(title) -> Lấy title từ bảng events
+      // tasks(title) -> Lấy title từ bảng tasks
+      // schedules(events(title)) -> Từ schedule nhảy sang events để lấy title
       final response = await _supabase
           .from('notes')
-          .select()
+          .select('*, events(title), tasks(title), schedules(events(title))')
           .order('updated_at', ascending: false);
 
       final data = response as List<dynamic>;
@@ -38,9 +43,10 @@ class _NoteScreenState extends State<NoteScreen> {
       });
     } catch (e) {
       if (mounted) {
-        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        // Fallback: Nếu user chưa có cài đặt settings, dùng chuỗi cứng
+        // final settings = Provider.of<SettingsProvider>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${settings.strings.translate('error_loading_notes')}$e')),
+          SnackBar(content: Text('Error loading notes: $e')),
         );
       }
     } finally {
@@ -90,38 +96,38 @@ class _NoteScreenState extends State<NoteScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _notes.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.note_alt_outlined, size: 64, color: iconColor),
-                      const SizedBox(height: 16),
-                      Text(
-                        settings.strings.translate('no_notes_yet'),
-                        style: TextStyle(color: subTextColor, fontSize: 16),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _notes.length,
-                  itemBuilder: (context, index) {
-                    final note = _notes[index];
-                    return NoteCard(
-                      note: note,
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => NoteDetailScreen(note: note),
-                          ),
-                        );
-                        _fetchNotes();
-                      },
-                    );
-                  },
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.note_alt_outlined, size: 64, color: iconColor),
+            const SizedBox(height: 16),
+            Text(
+              settings.strings.translate('no_notes_yet'),
+              style: TextStyle(color: subTextColor, fontSize: 16),
+            ),
+          ],
+        ),
+      )
+          : ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _notes.length,
+        itemBuilder: (context, index) {
+          final note = _notes[index];
+          return NoteCard(
+            note: note,
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NoteDetailScreen(note: note),
                 ),
+              );
+              _fetchNotes();
+            },
+          );
+        },
+      ),
     );
   }
 }

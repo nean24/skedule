@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:skedule/features/settings/settings_provider.dart';
 import '../models/note.dart';
 
 class NoteCard extends StatelessWidget {
@@ -15,21 +13,15 @@ class NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
-    final isDark = settings.isDarkMode;
-    final backgroundColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final subTextColor = isDark ? Colors.grey[400] : Colors.grey[500];
-    final contentColor = isDark ? Colors.grey[300] : Colors.grey[600];
-    final borderColor = isDark ? Colors.grey[800]! : Colors.grey[200]!;
+    // Xác định màu sắc cho Chip liên kết
+    final hasLink = note.linkedTitle != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
-      color: backgroundColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: borderColor),
+        side: BorderSide(color: Colors.grey[200]!),
       ),
       child: InkWell(
         onTap: onTap,
@@ -39,23 +31,46 @@ class NoteCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // --- PHẦN HIỂN THỊ LIÊN KẾT (MỚI) ---
+              if (hasLink)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3))
+                  ),
+                  child: Text(
+                    note.linkedTitle!,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[800],
+                        fontWeight: FontWeight.w600
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              // ------------------------------------
+
               Row(
                 children: [
                   Expanded(
                     child: Text(
                       note.content.split('\n').first,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: textColor,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     _formatDate(note.updatedAt),
-                    style: TextStyle(color: subTextColor, fontSize: 12),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
                   ),
                 ],
               ),
@@ -63,7 +78,7 @@ class NoteCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   note.content.split('\n').skip(1).join('\n'),
-                  style: TextStyle(color: contentColor, height: 1.5),
+                  style: TextStyle(color: Colors.grey[600], height: 1.5),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
