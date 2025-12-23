@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:skedule/widgets/stat_card.dart';
-import 'package:skedule/widgets/task_card.dart';
 import 'package:provider/provider.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
+import 'package:skedule/widgets/stat_card.dart';
+import 'package:skedule/widgets/task_card.dart';
+import 'package:skedule/home/screens/event_detail_screen.dart'; // Đảm bảo bạn đã tạo file này
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -17,16 +18,18 @@ class _DashboardPageState extends State<DashboardPage> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
 
-  // Các biến dữ liệu
+  // Các biến dữ liệu thống kê
   int _completedTasks = 0;
   int _happeningNow = 0;
   int _missedCount = 0;
   int _dayStreak = 0;
   double _productivityScore = 0.0;
 
-  List<dynamic> _comingUpItems = [];
-  List<dynamic> _missedTasksItems = [];
+  // Danh sách hiển thị
+  List<Map<String, dynamic>> _comingUpItems = [];
+  List<Map<String, dynamic>> _missedTasksItems = [];
 
+  // Thống kê tuần
   int _weekCompleted = 0;
   int _weekActiveDays = 0;
   int _weekUpcoming = 0;
@@ -45,7 +48,6 @@ class _DashboardPageState extends State<DashboardPage> {
     if (user == null) return;
 
     final now = DateTime.now();
-    // Chuẩn hóa ngày hôm nay (00:00:00) để tính streak
     final today = DateTime(now.year, now.month, now.day);
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
 
@@ -60,18 +62,19 @@ class _DashboardPageState extends State<DashboardPage> {
 
       int completed = 0;
       int missed = 0;
-      List<dynamic> comingUp = [];
-      List<dynamic> missedList = [];
       int weekComp = 0;
       int weekUp = 0;
 
-      // --- LOGIC TÍNH STREAK & DATA ---
-      // Dùng Set để lưu các ngày đã hoàn thành công việc (tránh trùng lặp)
+      List<Map<String, dynamic>> comingUp = [];
+      List<Map<String, dynamic>> missedList = [];
+
+      // Tập hợp các ngày đã hoàn thành task để tính Streak
       final Set<DateTime> activeDates = {};
 
+      // --- XỬ LÝ TASKS ---
       for (var t in tasksResponse) {
-        // Chuyển đổi sang Map để dễ xử lý
         final task = Map<String, dynamic>.from(t);
+        task['isTask'] = true; // Đánh dấu đây là Task
 
         final bool isCompleted = task['is_completed'] ?? false;
         final DateTime? deadline = task['deadline'] != null
@@ -82,7 +85,7 @@ class _DashboardPageState extends State<DashboardPage> {
           completed++;
           if (deadline != null && deadline.isAfter(startOfWeek)) weekComp++;
 
-          // Lấy ngày updated_at để tính streak (giả định updated_at là thời gian hoàn thành)
+          // Lưu ngày hoàn thành để tính Streak
           if (task['updated_at'] != null) {
             final updateTime = DateTime.parse(task['updated_at']).toLocal();
             activeDates.add(
@@ -91,40 +94,35 @@ class _DashboardPageState extends State<DashboardPage> {
         } else if (deadline != null) {
           if (deadline.isBefore(now)) {
             missed++;
-            task['isTask'] = true;
             missedList.add(task);
           } else {
-            task['isTask'] = true;
             comingUp.add(task);
             if (deadline.isAfter(startOfWeek)) weekUp++;
           }
         } else {
-          // Task không có deadline mà chưa xong
-          task['isTask'] = true;
+          // Task chưa xong và không có deadline -> cho vào danh sách cần làm
           comingUp.add(task);
         }
       }
 
-      // --- THUẬT TOÁN TÍNH CHUỖI (STREAK) ---
+      // --- TÍNH TOÁN STREAK ---
       int streak = 0;
       DateTime checkDate = today;
-
-      // Nếu hôm nay chưa làm gì, kiểm tra từ hôm qua để không bị mất chuỗi
+      // Nếu hôm nay chưa làm, kiểm tra từ hôm qua để giữ chuỗi
       if (!activeDates.contains(today)) {
         checkDate = today.subtract(const Duration(days: 1));
       }
-
-      // Đếm lùi về quá khứ
       while (activeDates.contains(checkDate)) {
         streak++;
         checkDate = checkDate.subtract(const Duration(days: 1));
       }
-      // -------------------------------------
 
-      // Xử lý Events (Đang diễn ra & Sắp tới)
+      // --- XỬ LÝ EVENTS ---
       int happening = 0;
       for (var e in eventsResponse) {
         final event = Map<String, dynamic>.from(e);
+        event['isTask'] = false; // Đánh dấu đây là Event
+
         if (event['start_time'] == null || event['end_time'] == null) continue;
 
         final startTime = DateTime.parse(event['start_time']).toLocal();
@@ -133,29 +131,24 @@ class _DashboardPageState extends State<DashboardPage> {
         if (startTime.isBefore(now) && endTime.isAfter(now)) {
           happening++;
         } else if (startTime.isAfter(now)) {
-          event['isTask'] = false;
           comingUp.add(event);
         }
       }
 
-      // Sắp xếp danh sách Sắp tới (Coming Up)
+      // Sắp xếp danh sách Coming Up theo thời gian
       comingUp.sort((a, b) {
-        DateTime timeA;
+        DateTime timeA = DateTime(2100);
         if (a['isTask'] == true && a['deadline'] != null) {
           timeA = DateTime.parse(a['deadline']).toLocal();
-        } else if (a['start_time'] != null) {
+        } else if (a['isTask'] == false && a['start_time'] != null) {
           timeA = DateTime.parse(a['start_time']).toLocal();
-        } else {
-          timeA = DateTime(2100);
         }
 
-        DateTime timeB;
+        DateTime timeB = DateTime(2100);
         if (b['isTask'] == true && b['deadline'] != null) {
           timeB = DateTime.parse(b['deadline']).toLocal();
-        } else if (b['start_time'] != null) {
+        } else if (b['isTask'] == false && b['start_time'] != null) {
           timeB = DateTime.parse(b['start_time']).toLocal();
-        } else {
-          timeB = DateTime(2100);
         }
         return timeA.compareTo(timeB);
       });
@@ -170,21 +163,41 @@ class _DashboardPageState extends State<DashboardPage> {
           _completedTasks = completed;
           _happeningNow = happening;
           _missedCount = missed;
-          _dayStreak = streak; // Cập nhật Streak
+          _dayStreak = streak;
           _productivityScore = score;
-          _comingUpItems = comingUp.take(3).toList();
+
+          _comingUpItems = comingUp.take(3).toList(); // Lấy 3 việc sắp tới
           _missedTasksItems = missedList.take(3).toList();
+
           _weekCompleted = weekComp;
           _weekUpcoming = weekUp;
-          _weekActiveDays = activeDates
-              .where((d) => d.isAfter(startOfWeek))
-              .length; // Số ngày active trong tuần
+          _weekActiveDays =
+              activeDates.where((d) => d.isAfter(startOfWeek)).length;
+
           _isLoading = false;
         });
       }
     } catch (e) {
       debugPrint("Lỗi Dashboard: $e");
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Hàm chuyển trang khi bấm vào Task/Event
+  void _navigateToDetail(Map<String, dynamic> item, bool isTask) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EventDetailScreen(
+          data: item,
+          isTask: isTask,
+        ),
+      ),
+    );
+
+    // Nếu màn hình chi tiết trả về true (có thay đổi dữ liệu), load lại dashboard
+    if (result == true) {
+      _fetchDashboardData();
     }
   }
 
@@ -205,6 +218,8 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 24),
           _buildStatsGrid(settings),
           const SizedBox(height: 32),
+
+          // --- COMING UP ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: _buildSectionHeader(
@@ -212,7 +227,10 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 16),
           _buildComingUpList(),
+
           const SizedBox(height: 24),
+
+          // --- MISSED TASKS ---
           if (_missedTasksItems.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -224,6 +242,7 @@ class _DashboardPageState extends State<DashboardPage> {
             _buildMissedTasksList(),
             const SizedBox(height: 32),
           ],
+
           _buildSummaryCard(settings),
           const SizedBox(height: 30),
         ],
@@ -231,7 +250,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // --- GIỮ NGUYÊN CÁC WIDGET UI CŨ CỦA BẠN ---
+  // --- CÁC WIDGET CON (HEADER, STATS, LIST...) ---
 
   Widget _buildHeader() {
     final settings = Provider.of<SettingsProvider>(context);
@@ -349,15 +368,13 @@ class _DashboardPageState extends State<DashboardPage> {
         children: _comingUpItems.map((item) {
           final bool isTask = item['isTask'];
 
-          String timeStr = "";
+          String timeStr = "--:--";
           if (isTask && item['deadline'] != null) {
             timeStr = DateFormat(timeFormat)
                 .format(DateTime.parse(item['deadline']).toLocal());
           } else if (!isTask && item['start_time'] != null) {
             timeStr = DateFormat(timeFormat)
                 .format(DateTime.parse(item['start_time']).toLocal());
-          } else {
-            timeStr = "--:--";
           }
 
           return TaskCard(
@@ -372,6 +389,8 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: isTask ? Icons.task_alt : Icons.event,
             borderColor: isTask ? Colors.orange : Colors.purple,
             isTask: isTask,
+            // --- THÊM SỰ KIỆN BẤM VÀO ---
+            onTap: () => _navigateToDetail(item, isTask),
           );
         }).toList(),
       ),
@@ -395,6 +414,9 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: Icons.error_outline,
             borderColor: Colors.red,
             isTask: true,
+            // --- THÊM SỰ KIỆN BẤM VÀO ---
+            onTap: () =>
+                _navigateToDetail(item, true), // Missed items luôn là Task
           );
         }).toList(),
       ),
