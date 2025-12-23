@@ -3,8 +3,8 @@ import os
 import io
 import base64
 import logging
-from datetime import date, datetime, timedelta  # Đã thêm timedelta để tránh crash
-from typing import Optional
+from datetime import date, datetime, timedelta
+from typing import Optional, NamedTuple
 
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile, Form
 from sqlalchemy import text
@@ -13,11 +13,9 @@ import speech_recognition as sr
 from pydub import AudioSegment
 
 # --- PHẦN IMPORT QUAN TRỌNG ---
-# Với LangChain 0.3.27, nếu import lỗi, hãy thử cách dự phòng bên dưới
 try:
     from langchain.agents import AgentExecutor, create_tool_calling_agent
 except ImportError:
-    # Fallback cho một số cấu trúc thư mục đặc thù
     from langchain.agents.agent import AgentExecutor
     from langchain.agents import create_tool_calling_agent
 
@@ -42,20 +40,21 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     logger.warning("⚠️ Chưa tìm thấy GEMINI_API_KEY trong .env")
 
-# Sử dụng model Gemini để xử lý logic
+# Sử dụng model Gemini
 llm_brain = ChatGoogleGenerativeAI(
-    model="gemini-3-flash", google_api_key=GEMINI_API_KEY, temperature=0.7)
+    model="gemini-1.5-flash", google_api_key=GEMINI_API_KEY, temperature=0.7)
 
 # --- 2. XỬ LÝ ÂM THANH ---
+
+
 def clean_text_for_speech(text: str) -> str:
-    # Loại bỏ các ký tự markdown để giọng đọc tự nhiên hơn
     return text.replace('*', '').replace('#', '').replace('-', ' ').replace('_', '')
+
 
 def text_to_base64_audio(text: str) -> str:
     try:
         if not text:
             return ""
-        # Chỉ đọc 200 ký tự đầu để tránh chờ lâu nếu phản hồi quá dài
         short_text = clean_text_for_speech(text)[:200]
         tts = gTTS(short_text, lang='vi')
         audio_fp = io.BytesIO()
@@ -65,6 +64,7 @@ def text_to_base64_audio(text: str) -> str:
     except Exception as e:
         logger.error(f"Lỗi TTS: {e}")
         return ""
+
 
 async def audio_to_text(audio_file: UploadFile) -> str:
     try:
@@ -82,7 +82,7 @@ async def audio_to_text(audio_file: UploadFile) -> str:
         logger.error(f"Lỗi STT: {e}")
         return ""
 
-# --- 3. CÁC CÔNG CỤ (TOOLS) TUÂN THỦ KIẾN TRÚC EVENT-BASED ---
+# --- 3. CÁC CÔNG CỤ (TOOLS) ---
 
 
 @tool
@@ -93,12 +93,13 @@ def lay_ten_nguoi_dung(user_id: str) -> str:
                            "uid": user_id}).fetchone()
         return f"Tên người dùng là {res.name}." if res else "Không rõ tên."
 
+
 @tool
 def tao_su_kien_toan_dien(tieu_de: str, loai_su_kien: str, user_id: str, mo_ta: Optional[str] = None,
                           bat_dau: Optional[str] = None, ket_thuc: Optional[str] = None,
                           uu_tien: str = 'medium') -> str:
     """
-    Tạo sự kiện/task. TỰ ĐỘNG CẢNH BÁO nếu trùng giờ.
+    Tạo sự kiện/task.
     loai_su_kien: task, schedule, class, workshift, deadline.
     uu_tien: cao, trung bình, thấp.
     """
@@ -106,7 +107,6 @@ def tao_su_kien_toan_dien(tieu_de: str, loai_su_kien: str, user_id: str, mo_ta: 
         with engine.connect() as conn:
             with conn.begin():
                 start_dt, end_dt = None, None
-                now = datetime.now()
 
                 if bat_dau:
                     start_dt, end_dt = parse_natural_time(
@@ -136,7 +136,6 @@ def tao_su_kien_toan_dien(tieu_de: str, loai_su_kien: str, user_id: str, mo_ta: 
 
                 # Tạo Schedule
                 if start_dt and loai_su_kien != 'deadline':
-                    # Fix lỗi timedelta ở đây
                     final_end = end_dt if end_dt else (
                         start_dt + timedelta(hours=1))
                     conn.execute(text("""
@@ -150,6 +149,7 @@ def tao_su_kien_toan_dien(tieu_de: str, loai_su_kien: str, user_id: str, mo_ta: 
     except Exception as e:
         logger.error(f"Lỗi tạo sự kiện: {e}")
         return f"❌ Có lỗi xảy ra: {str(e)}"
+
 
 @tool
 def cap_nhat_su_kien(tieu_de_cu: str, thoi_gian_moi: str, user_id: str) -> str:
@@ -175,7 +175,6 @@ def cap_nhat_su_kien(tieu_de_cu: str, thoi_gian_moi: str, user_id: str) -> str:
                     WHERE id = :id
                 """), {"s": new_start, "e": new_end, "id": event.id})
 
-                # Update các bảng con (Cascade thường không tự update time, nên làm thủ công cho chắc)
                 conn.execute(text("UPDATE schedules SET start_time=:s, end_time=:e WHERE event_id=:id"),
                              {"s": new_start, "e": new_end, "id": event.id})
 
@@ -186,7 +185,7 @@ def cap_nhat_su_kien(tieu_de_cu: str, thoi_gian_moi: str, user_id: str) -> str:
 
 @tool
 def tao_ghi_chu_thong_minh(noi_dung: str, user_id: str, context_title: Optional[str] = None) -> str:
-    """Tạo ghi chú gắn liền với Event hoặc Task cụ thể (XOR logic)."""
+    """Tạo ghi chú gắn liền với Event hoặc Task cụ thể."""
     with engine.connect() as conn:
         with conn.begin():
             event_id = None
@@ -199,6 +198,7 @@ def tao_ghi_chu_thong_minh(noi_dung: str, user_id: str, context_title: Optional[
             conn.execute(
                 query, {"uid": user_id, "content": noi_dung, "eid": event_id})
             return "✅ Đã lưu ghi chú." if event_id else "✅ Đã tạo ghi chú độc lập."
+
 
 @tool
 def xoa_su_kien_toan_tap(tieu_de: str, user_id: str) -> str:
@@ -213,9 +213,61 @@ def xoa_su_kien_toan_tap(tieu_de: str, user_id: str) -> str:
         return f"Lỗi xóa: {e}"
 
 
-# --- 4. LẮP RÁP AGENT ---
-tools = [lay_ten_nguoi_dung, tao_su_kien_toan_dien,
-         tao_ghi_chu_thong_minh, xoa_su_kien_toan_tap]
+@tool
+def lay_lich_trinh_tuan(user_id: str) -> str:
+    """Lấy lịch trình trong tuần tới."""
+    try:
+        with engine.connect() as conn:
+            query = text("""
+                SELECT title, start_time 
+                FROM events 
+                WHERE user_id = :uid 
+                AND start_time >= CURRENT_DATE 
+                AND start_time < CURRENT_DATE + INTERVAL '7 days'
+                ORDER BY start_time ASC
+            """)
+            rows = conn.execute(query, {"uid": user_id}).fetchall()
+
+            if not rows:
+                return "📅 Tuần này bạn chưa có lịch trình nào."
+
+            result = "📅 Lịch trình tuần tới:\n"
+            for row in rows:
+                time_str = row.start_time.strftime(
+                    '%d/%m %H:%M') if row.start_time else "N/A"
+                result += f"- {row.title} ({time_str})\n"
+            return result
+    except Exception as e:
+        return f"Lỗi lấy lịch: {e}"
+
+
+@tool
+def thong_ke_tong_quan(user_id: str) -> str:
+    """Thống kê tổng quan về công việc, ghi chú và sự kiện."""
+    try:
+        with engine.connect() as conn:
+            # 1. Thống kê Task
+            task_res = conn.execute(text("""
+                SELECT 
+                    COUNT(*) FILTER (WHERE status = 'todo') as todo,
+                    COUNT(*) FILTER (WHERE status = 'doing') as doing,
+                    COUNT(*) FILTER (WHERE status = 'done') as done
+                FROM tasks WHERE user_id = :uid
+            """), {"uid": user_id}).fetchone()
+
+            # Sử dụng _mapping để truy cập theo tên cột an toàn hơn nếu trả về Row
+            # Hoặc truy cập theo index nếu là tuple
+            # Giả sử trả về object có thuộc tính
+            class TaskStats(NamedTuple):
+                todo: int
+                doing: int
+                done: int
+
+            task_stats = TaskStats(task_res[0], task_res[1], task_res[2])
+
+            # 2. Đếm Ghi chú
+            note_count = conn.execute(text("SELECT COUNT(*) FROM notes WHERE user_id = :uid"),
+                                      {"uid": user_id}).scalar()
 
             # 3. Đếm Sự kiện tuần này
             event_count = conn.execute(text("""
@@ -242,7 +294,7 @@ def liet_ke_danh_sach(user_id: str, loai: str = 'all', gioi_han: int = 5) -> str
     """
     try:
         with engine.connect() as conn:
-            # TRƯỜNG HỢP 1: LIỆT KÊ GHI CHÚ (Query bảng notes)
+            # TRƯỜNG HỢP 1: LIỆT KÊ GHI CHÚ
             if loai in ['ghi chú', 'note']:
                 query = text("""
                     SELECT content, created_at 
@@ -261,18 +313,15 @@ def liet_ke_danh_sach(user_id: str, loai: str = 'all', gioi_han: int = 5) -> str
                 for row in rows:
                     date_str = row.created_at.strftime(
                         '%d/%m') if row.created_at else ""
-                    # Lấy 50 ký tự đầu làm tiêu đề
                     preview = row.content.split('\n')[0][:50]
                     result += f"- [{date_str}] {preview}...\n"
                 return result
 
-            # TRƯỜNG HỢP 2: LIỆT KÊ SỰ KIỆN/TASK (Query bảng events)
+            # TRƯỜNG HỢP 2: LIỆT KÊ SỰ KIỆN/TASK
             else:
                 base_query = "SELECT title, type, start_time, description FROM events WHERE user_id = :uid"
 
-                # Lọc theo loại task/deadline/schedule
                 if loai not in ['all', 'tất cả']:
-                    # Map loại
                     if loai in ['công việc', 'task']:
                         db_type = 'task'
                     elif loai in ['hạn', 'deadline']:
@@ -280,11 +329,10 @@ def liet_ke_danh_sach(user_id: str, loai: str = 'all', gioi_han: int = 5) -> str
                     elif loai in ['lịch', 'schedule']:
                         db_type = 'schedule'
                     else:
-                        db_type = loai  # Mặc định
+                        db_type = loai
 
                     base_query += f" AND type = '{db_type}'"
 
-                # Sắp xếp
                 query = text(
                     base_query + " ORDER BY start_time ASC NULLS LAST LIMIT :limit")
                 rows = conn.execute(
@@ -308,19 +356,14 @@ def liet_ke_danh_sach(user_id: str, loai: str = 'all', gioi_han: int = 5) -> str
 def xem_chi_tiet_su_kien(user_id: str, tu_khoa: str) -> str:
     """
     Tìm kiếm thông minh (Full Text Search) trong cả EVENT và NOTE.
-    Chấp nhận từ khóa không cần chính xác tuyệt đối (VD: 'ý tưởng giao diện' vẫn tìm ra 'ý tưởng làm giao diện').
     """
     try:
         with engine.connect() as conn:
-            # --- KỸ THUẬT: Dùng to_tsvector @@ plainto_tsquery ---
-            # Hàm này sẽ tách 'ý tưởng giao diện' thành: tìm 'ý' VÀ 'tưởng' VÀ 'giao' VÀ 'diện'
-            # Bất kể các từ này nằm cách xa nhau bao nhiêu trong câu.
-
             search_condition = """
                 (
-                    title ILIKE :kw_like              -- Cách 1: Tìm chính xác (như cũ)
+                    title ILIKE :kw_like
                     OR 
-                    to_tsvector('simple', title) @@ plainto_tsquery('simple', :kw_plain) -- Cách 2: Tìm theo từ khóa
+                    to_tsvector('simple', title) @@ plainto_tsquery('simple', :kw_plain)
                 )
             """
 
@@ -346,13 +389,13 @@ def xem_chi_tiet_su_kien(user_id: str, tu_khoa: str) -> str:
                 )
 
                 if event.type in ['task', 'deadline']:
-                    task = conn.execute(text("SELECT priority, status, deadline FROM tasks WHERE event_id = :eid"), {
-                                        "eid": event.id}).fetchone()
+                    task = conn.execute(text("SELECT priority, status, deadline FROM tasks WHERE event_id = :eid"),
+                                        {"eid": event.id}).fetchone()
                     if task:
                         details += f"- Ưu tiên: {task.priority} | Trạng thái: {task.status}\n"
 
-                    checklists = conn.execute(text("SELECT item_text, is_done FROM checklist_items WHERE task_id = (SELECT id FROM tasks WHERE event_id = :eid)"), {
-                                              "eid": event.id}).fetchall()
+                    checklists = conn.execute(text("SELECT item_text, is_done FROM checklist_items WHERE task_id = (SELECT id FROM tasks WHERE event_id = :eid)"),
+                                              {"eid": event.id}).fetchall()
                     if checklists:
                         details += "- Checklist:\n" + \
                             "\n".join(
@@ -360,7 +403,7 @@ def xem_chi_tiet_su_kien(user_id: str, tu_khoa: str) -> str:
 
                 return details
 
-            # 2. Tìm trong bảng NOTES (Áp dụng logic tương tự cho cột content)
+            # 2. Tìm trong bảng NOTES
             note_condition = """
                 (
                     content ILIKE :kw_like 
@@ -388,31 +431,29 @@ def xem_chi_tiet_su_kien(user_id: str, tu_khoa: str) -> str:
 
     except Exception as e:
         return f"Lỗi tìm kiếm: {e}"
+
 # --- 4. CẤU HÌNH AGENT & PROMPT ---
 
 
-# --- CẬP NHẬT LIST TOOLS ---
 tools = [
     lay_ten_nguoi_dung,
     tao_su_kien_toan_dien,
-    lay_lich_trinh_tuan,
     cap_nhat_su_kien,
     tao_ghi_chu_thong_minh,
     xoa_su_kien_toan_tap,
-    # Thêm 3 tool mới:
+    lay_lich_trinh_tuan,
     thong_ke_tong_quan,
     liet_ke_danh_sach,
     xem_chi_tiet_su_kien
 ]
 
-# --- CẬP NHẬT SYSTEM PROMPT ---
 system_prompt = f"""
 Bạn là Skedule AI Agent. Hôm nay là {date.today().strftime('%d/%m/%Y')}
 
 QUY TẮC CỐT LÕI:
 1. KHI CHÀO HỎI (đầu cuộc hội thoại):
    - BẮT BUỘC gọi tool `lay_ten_nguoi_dung`.
-   - Dùng CHÍNH XÁC nội dung tool trả về để đáp lại User (vì tool đã format sẵn câu "Bạn là...").
+   - Dùng CHÍNH XÁC nội dung tool trả về để đáp lại User.
    - KHÔNG tự chế thêm lời chào khác.
 
 2. CÁC HÀNH ĐỘNG KHÁC:
@@ -432,8 +473,10 @@ agent_executor = AgentExecutor(agent=create_tool_calling_agent(
     llm_brain, tools, prompt_template), tools=tools, verbose=True)
 store = {}
 
+
 def get_history(session_id: str) -> BaseChatMessageHistory:
-    if session_id not in store: store[session_id] = ChatMessageHistory()
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
     return store[session_id]
 
 
@@ -442,16 +485,42 @@ agent_with_history = RunnableWithMessageHistory(
 
 # --- 5. API ---
 app = FastAPI(title="Skedule AI Agent v1.5")
-app.include_router(payment_router)
+# app.include_router(payment_router)
 
 
 @app.post("/chat")
 async def chat(prompt: Optional[str] = Form(None), audio_file: Optional[UploadFile] = File(None), user_id: str = Depends(get_current_user_id)):
-    user_prompt = await audio_to_text(audio_file) if audio_file else prompt
-    if not user_prompt:
-        raise HTTPException(status_code=400, detail="Thiếu nội dung.")
+    user_prompt = ""
+    if audio_file:
+        user_prompt = await audio_to_text(audio_file)
+    elif prompt:
+        user_prompt = prompt
 
-    result = agent_with_history.invoke({"input": user_prompt, "user_id": user_id}, config={
-                                       "configurable": {"session_id": f"user_{user_id}"}})
-    ai_text = result.get("output", "Lỗi phản hồi.")
-    return {"user_prompt": user_prompt if audio_file else None, "text_response": ai_text, "audio_base64": text_to_base64_audio(ai_text)}
+    if not user_prompt:
+        return {"text_response": "Tôi đang lắng nghe...", "audio_base64": ""}
+
+    try:
+        # Gọi Agent
+        result = agent_with_history.invoke(
+            {"input": user_prompt, "user_id": user_id},
+            config={"configurable": {"session_id": f"user_{user_id}"}}
+        )
+        ai_text = result.get("output", "")
+
+        # XỬ LÝ KHI AI IM LẶNG (Fallback)
+        if not ai_text or ai_text.strip() == "":
+            if "intermediate_steps" in result and len(result["intermediate_steps"]) > 0:
+                last_tool_output = str(result["intermediate_steps"][-1][1])
+                ai_text = f"{last_tool_output}"
+            else:
+                ai_text = "Đã nhận lệnh và xử lý xong."
+
+    except Exception as e:
+        logger.error(f"Agent Error: {e}")
+        ai_text = f"Hệ thống gặp lỗi: {str(e)}"
+
+    return {
+        "user_prompt": user_prompt,
+        "text_response": ai_text,
+        "audio_base64": text_to_base64_audio(ai_text)
+    }
