@@ -20,6 +20,12 @@ class AppColors {
   static const Color task = Color(0xFF00C566);
   static const Color todayChip = Color(0xFFE9EDF5);
   static const Color scheduleBlue = Color(0xFF3B82F6);
+
+  // Dark Mode Colors
+  static const Color scaffoldBgDark = Color(0xFF121212);
+  static const Color cardBgDark = Color(0xFF1E1E1E);
+  static const Color textDarkDark = Color(0xFFE0E0E0);
+  static const Color textLightDark = Color(0xFFA0A0A0);
 }
 
 class CalendarScreen extends StatefulWidget {
@@ -83,31 +89,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+
+    final bgColor = isDark ? AppColors.scaffoldBgDark : AppColors.scaffoldBg;
+    final cardColor = isDark ? AppColors.cardBgDark : AppColors.cardBg;
+    final textColor = isDark ? AppColors.textDarkDark : AppColors.textDark;
+    final subTextColor = isDark ? AppColors.textLightDark : AppColors.textLight;
+
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
+      backgroundColor: bgColor,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Column(
           children: [
-            _buildHeader(),
+            _buildHeader(settings, textColor, subTextColor),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   children: [
-                    _buildMonthNavigator(),
+                    _buildMonthNavigator(settings, textColor),
                     const SizedBox(height: 10),
-                    _buildViewSwitcher(),
+                    _buildViewSwitcher(cardColor, subTextColor),
                     const SizedBox(height: 16),
-                    _buildCalendarGrid(),
+                    _buildCalendarGrid(settings, cardColor, textColor, subTextColor),
                     const SizedBox(height: 20),
-                    _buildLegendChips(),
+                    _buildLegendChips(textColor),
                     const SizedBox(height: 16),
                     _buildModeToggle(),
                     const SizedBox(height: 24),
-                    _buildScheduleListFromData(),
+                    _buildScheduleListFromData(settings, cardColor, textColor, subTextColor),
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -120,8 +134,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   // --- GIẢI PHÁP 1: Sử dụng Flexible cho Header để tránh tràn ngang ---
-  Widget _buildHeader() {
-    final settings = Provider.of<SettingsProvider>(context);
+  Widget _buildHeader(SettingsProvider settings, Color textColor, Color subTextColor) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
       child: Row(
@@ -137,8 +150,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(settings.strings.translate('calendar'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textDark), overflow: TextOverflow.ellipsis),
-                      Text(settings.strings.translate('schedules'), style: const TextStyle(fontSize: 12, color: AppColors.textLight), overflow: TextOverflow.ellipsis),
+                      Text(settings.strings.translate('calendar'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textColor), overflow: TextOverflow.ellipsis),
+                      Text(settings.strings.translate('schedules'), style: TextStyle(fontSize: 12, color: subTextColor), overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -148,9 +161,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           const SizedBox(width: 8),
           Row( // Nút chức năng
             children: [
-              _buildActionBtn(Icons.access_time, settings.strings.translate('templates'), isOutlined: true),
+              _buildActionBtn(Icons.access_time, settings.strings.translate('templates'), isOutlined: true, textColor: subTextColor),
               const SizedBox(width: 6),
-              _buildActionBtn(Icons.add, 'Add', isOutlined: false),
+              _buildActionBtn(Icons.add, 'Add', isOutlined: false, textColor: Colors.white),
             ],
           ),
         ],
@@ -158,28 +171,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildActionBtn(IconData icon, String label, {required bool isOutlined}) {
+  Widget _buildActionBtn(IconData icon, String label, {required bool isOutlined, required Color textColor}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isOutlined ? Colors.transparent : AppColors.accentBlue,
         borderRadius: BorderRadius.circular(20),
-        border: isOutlined ? Border.all(color: AppColors.textLight.withOpacity(0.4)) : null,
+        border: isOutlined ? Border.all(color: textColor.withOpacity(0.4)) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: isOutlined ? AppColors.textLight : Colors.white),
+          Icon(icon, size: 14, color: textColor),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isOutlined ? AppColors.textLight : Colors.white)),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor)),
         ],
       ),
     );
   }
 
   // --- GIẢI PHÁP 2: Loại bỏ SizedBox cố định ở bộ chọn tháng ---
-  Widget _buildMonthNavigator() {
-    final settings = Provider.of<SettingsProvider>(context);
+  Widget _buildMonthNavigator(SettingsProvider settings, Color textColor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -191,7 +203,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Center(
             child: Text(
               DateFormat('MMMM yyyy', settings.localeCode).format(_focusedDay),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -204,16 +216,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildViewSwitcher() {
+  Widget _buildViewSwitcher(Color cardColor, Color subTextColor) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
-          _buildSwitchTab('Calendar', Icons.calendar_view_month, _calendarFormat == CalendarFormat.month, () {
+          _buildSwitchTab('Calendar', Icons.calendar_view_month, _calendarFormat == CalendarFormat.month, subTextColor, () {
             setState(() => _calendarFormat = CalendarFormat.month);
           }),
-          _buildSwitchTab('Week', Icons.access_time, _calendarFormat == CalendarFormat.week, () {
+          _buildSwitchTab('Week', Icons.access_time, _calendarFormat == CalendarFormat.week, subTextColor, () {
             setState(() => _calendarFormat = CalendarFormat.week);
           }),
         ],
@@ -221,7 +233,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildSwitchTab(String label, IconData icon, bool isActive, VoidCallback onTap) {
+  Widget _buildSwitchTab(String label, IconData icon, bool isActive, Color subTextColor, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -234,9 +246,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: isActive ? Colors.white : AppColors.textLight),
+              Icon(icon, size: 16, color: isActive ? Colors.white : subTextColor),
               const SizedBox(width: 6),
-              Flexible(child: Text(label, style: TextStyle(color: isActive ? Colors.white : AppColors.textLight, fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)),
+              Flexible(child: Text(label, style: TextStyle(color: isActive ? Colors.white : subTextColor, fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)),
             ],
           ),
         ),
@@ -244,11 +256,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildCalendarGrid() {
-    final settings = Provider.of<SettingsProvider>(context);
+  Widget _buildCalendarGrid(SettingsProvider settings, Color cardColor, Color textColor, Color subTextColor) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
@@ -264,9 +275,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         onDaySelected: (selectedDay, focusedDay) => setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; }),
         calendarBuilders: CalendarBuilders(
-          defaultBuilder: (context, day, focusedDay) => _buildDayCard(day),
-          selectedBuilder: (context, day, focusedDay) => _buildDayCard(day, isSelected: true),
-          todayBuilder: (context, day, focusedDay) => _buildDayCard(day, isToday: true),
+          defaultBuilder: (context, day, focusedDay) => _buildDayCard(day, cardColor, textColor),
+          selectedBuilder: (context, day, focusedDay) => _buildDayCard(day, cardColor, textColor, isSelected: true),
+          todayBuilder: (context, day, focusedDay) => _buildDayCard(day, cardColor, textColor, isToday: true),
           markerBuilder: (context, day, events) {
             final normalizedDay = DateTime(day.year, day.month, day.day);
             final dayEvents = _eventsByDay[normalizedDay];
@@ -285,23 +296,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
             return _buildDots(markers);
           },
         ),
-        daysOfWeekStyle: const DaysOfWeekStyle(
-          weekdayStyle: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.bold, fontSize: 12),
-          weekendStyle: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.bold, fontSize: 12),
+        daysOfWeekStyle: DaysOfWeekStyle(
+          weekdayStyle: TextStyle(color: subTextColor, fontWeight: FontWeight.bold, fontSize: 12),
+          weekendStyle: TextStyle(color: subTextColor, fontWeight: FontWeight.bold, fontSize: 12),
         ),
       ),
     );
   }
 
-  Widget _buildDayCard(DateTime day, {bool isSelected = false, bool isToday = false}) {
+  Widget _buildDayCard(DateTime day, Color cardColor, Color textColor, {bool isSelected = false, bool isToday = false}) {
     return Container(
       margin: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: isSelected ? AppColors.scheduleBlue.withOpacity(0.1) : Colors.white,
+        color: isSelected ? AppColors.scheduleBlue.withOpacity(0.1) : cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isToday ? AppColors.scheduleBlue : Colors.grey.shade100),
+        border: Border.all(color: isToday ? AppColors.scheduleBlue : (isSelected ? Colors.transparent : Colors.grey.shade100.withOpacity(0.1))),
       ),
-      child: Center(child: Text('${day.day}', style: TextStyle(fontWeight: FontWeight.bold, color: isToday ? AppColors.scheduleBlue : AppColors.textDark, fontSize: 13))),
+      child: Center(child: Text('${day.day}', style: TextStyle(fontWeight: FontWeight.bold, color: isToday ? AppColors.scheduleBlue : textColor, fontSize: 13))),
     );
   }
 
@@ -315,7 +326,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildLegendChips() {
+  Widget _buildLegendChips(Color textColor) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
@@ -325,7 +336,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           _buildChip('Class', AppColors.classColor),
           _buildChip('Deadline', AppColors.deadline),
           _buildChip('Task', AppColors.task),
-          _buildChip('Today', AppColors.todayChip, textColor: AppColors.textDark),
+          _buildChip('Today', AppColors.todayChip, textColor: AppColors.textDark), // Keep today chip light for now or adjust
         ],
       ),
     );
@@ -359,8 +370,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   // --- GIẢI PHÁP 3: Sử dụng IntrinsicHeight cho Schedule List ---
-  Widget _buildScheduleListFromData() {
-    final settings = Provider.of<SettingsProvider>(context);
+  Widget _buildScheduleListFromData(SettingsProvider settings, Color cardColor, Color textColor, Color subTextColor) {
     final sortedDays = _eventsByDay.keys.toList()..sort();
     final filteredDays = sortedDays.where((day) => day.isAfter(_selectedDay!.subtract(const Duration(days: 1)))).take(3).toList();
 
@@ -368,13 +378,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-        child: Center(child: Text(settings.strings.translate('no_upcoming_events'), style: const TextStyle(color: AppColors.textLight))),
+        decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
+        child: Center(child: Text(settings.strings.translate('no_upcoming_events'), style: TextStyle(color: subTextColor))),
       );
     }
 
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(20)),
       padding: const EdgeInsets.all(16),
       child: Column(
         children: filteredDays.map((day) {
@@ -392,8 +402,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   else if (type == 'class') color = AppColors.classColor;
                   else color = AppColors.deadline;
                 }
-                return _buildEvent(e['title'] ?? 'Untitled', color);
+                return _buildEvent(e['title'] ?? 'Untitled', color, textColor);
               }).toList(),
+              textColor,
+              subTextColor
             ),
           );
         }).toList(),
@@ -401,7 +413,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildDayBlock(String day, String date, List<Widget> events) {
+  Widget _buildDayBlock(String day, String date, List<Widget> events, Color textColor, Color subTextColor) {
     return IntrinsicHeight( // Giúp đường kẻ dọc tự động kéo dài theo nội dung bên phải
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,8 +422,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             width: 45,
             child: Column(
               children: [
-                Text(day, style: const TextStyle(color: AppColors.textLight, fontSize: 11, fontWeight: FontWeight.bold)),
-                Text(date, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+                Text(day, style: TextStyle(color: subTextColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                Text(date, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: textColor)),
                 Expanded(child: Container(width: 2, color: Colors.grey.shade200)), // Đường kẻ động
               ],
             ),
@@ -423,14 +435,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildEvent(String title, Color color) {
+  Widget _buildEvent(String title, Color color, Color textColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 10),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14), overflow: TextOverflow.ellipsis)),
+          Expanded(child: Text(title, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14, color: textColor), overflow: TextOverflow.ellipsis)),
         ],
       ),
     );

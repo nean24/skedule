@@ -73,6 +73,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subTextColor = isDark ? Colors.grey[400] : Colors.grey;
+
     final user = _supabase.auth.currentUser;
     final userEmail = user?.email ?? 'N/A';
     final userName = user?.userMetadata?['name'] ?? user?.email?.split('@').first ?? 'Người dùng';
@@ -88,7 +93,8 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
       }
     }
 
-    return Padding(
+    return Container(
+      color: backgroundColor,
       padding: const EdgeInsets.all(16.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -100,11 +106,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
           const SizedBox(height: 24),
           
           if (_selectedTab == 'Account') ...[
-            Text(settings.strings.translate('account_info'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(settings.strings.translate('account_info'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
             const SizedBox(height: 16),
             _buildAccountInfoCard(userInitials, userName, userEmail, settings),
             const SizedBox(height: 16),
-            _buildInfoTile(icon: Icons.calendar_today_outlined, text: '${settings.strings.translate('member_since')} $memberSince'),
+            _buildInfoTile(icon: Icons.calendar_today_outlined, text: '${settings.strings.translate('member_since')} $memberSince', isDark: isDark),
             const Divider(height: 32),
             _buildActionTile(
               context: context,
@@ -120,6 +126,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                   });
                 }
               },
+              isDark: isDark,
             ),
             _buildActionTile(
               context: context,
@@ -127,15 +134,19 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               text: settings.strings.translate('sign_out'),
               color: Colors.red,
               onTap: () => _signOut(context),
+              isDark: isDark,
             ),
           ] else if (_selectedTab == 'Settings') ...[
-            Text(settings.strings.translate('general_settings'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(settings.strings.translate('general_settings'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
             const SizedBox(height: 16),
             _buildSettingItem(
               icon: Icons.language,
               title: settings.strings.translate('language'),
+              isDark: isDark,
               trailing: DropdownButton<String>(
                 value: settings.language,
+                dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                style: TextStyle(color: textColor),
                 underline: const SizedBox(),
                 items: ['English', 'Tiếng Việt'].map((String value) {
                   return DropdownMenuItem<String>(
@@ -153,6 +164,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             _buildSettingItem(
               icon: Icons.dark_mode_outlined,
               title: settings.strings.translate('dark_mode'),
+              isDark: isDark,
               trailing: Switch(
                 value: settings.isDarkMode,
                 onChanged: (value) {
@@ -164,6 +176,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             _buildSettingItem(
               icon: Icons.access_time,
               title: settings.strings.translate('24_hour_time'),
+              isDark: isDark,
               trailing: Switch(
                 value: settings.is24HourFormat,
                 onChanged: (value) {
@@ -175,8 +188,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
             _buildSettingItem(
               icon: Icons.date_range,
               title: settings.strings.translate('date_format'),
+              isDark: isDark,
               trailing: DropdownButton<String>(
                 value: settings.dateFormat,
+                dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                style: TextStyle(color: textColor),
                 underline: const SizedBox(),
                 items: ['dd/MM/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd'].map((String value) {
                   return DropdownMenuItem<String>(
@@ -194,7 +210,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
           ],
 
           const SizedBox(height: 32),
-          Center(child: Text(settings.strings.translate('version'), style: const TextStyle(color: Colors.grey))),
+          Center(child: Text(settings.strings.translate('version'), style: TextStyle(color: subTextColor))),
           const SizedBox(height: 32),
         ],
       ),
@@ -203,15 +219,19 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
 
   // --- CÁC WIDGET PHỤ (ĐÃ ĐƯA VÀO BÊN TRONG CLASS) ---
   Widget _buildHeader(BuildContext context, SettingsProvider settings) {
+    final isDark = settings.isDarkMode;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final iconColor = isDark ? Colors.white : Colors.black;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.settings_outlined),
+        Icon(Icons.settings_outlined, color: iconColor),
         const SizedBox(width: 8),
-        Text(settings.strings.translate('preferences'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(settings.strings.translate('preferences'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
         const Spacer(),
         IconButton(
-          icon: const Icon(Icons.close),
+          icon: Icon(Icons.close, color: iconColor),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
@@ -219,24 +239,31 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   }
 
   Widget _buildTabs(SettingsProvider settings) {
+    final isDark = settings.isDarkMode;
+    final backgroundColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200;
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildTabButton('Account', isSelected: _selectedTab == 'Account'),
-          _buildTabButton('Settings', isSelected: _selectedTab == 'Settings'),
+          _buildTabButton('Account', isSelected: _selectedTab == 'Account', isDark: isDark),
+          _buildTabButton('Settings', isSelected: _selectedTab == 'Settings', isDark: isDark),
           // _buildTabButton('Theme'), // Merged into Settings for simplicity
         ],
       ),
     );
   }
 
-  Widget _buildTabButton(String text, {bool isSelected = false}) {
+  Widget _buildTabButton(String text, {bool isSelected = false, required bool isDark}) {
+    final selectedColor = isDark ? const Color(0xFF4A6C8B) : Colors.white;
+    final unselectedTextColor = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
+    final selectedTextColor = isDark ? Colors.white : const Color(0xFF4A6C8B);
+
     return Expanded(
       child: ElevatedButton(
         onPressed: () {
@@ -245,8 +272,8 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
           });
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected ? Colors.white : Colors.transparent,
-          foregroundColor: isSelected ? const Color(0xFF4A6C8B) : Colors.grey.shade700,
+          backgroundColor: isSelected ? selectedColor : Colors.transparent,
+          foregroundColor: isSelected ? selectedTextColor : unselectedTextColor,
           elevation: isSelected ? 2 : 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -352,36 +379,49 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     );
   }
 
-  Widget _buildInfoTile({required IconData icon, required String text}) {
+  Widget _buildInfoTile({required IconData icon, required String text, required bool isDark}) {
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final iconColor = isDark ? Colors.grey[400] : Colors.grey.shade700;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ListTile(
-        leading: Icon(icon, color: Colors.grey.shade700),
-        title: Text(text),
+        leading: Icon(icon, color: iconColor),
+        title: Text(text, style: TextStyle(color: textColor)),
       ),
     );
   }
 
-  Widget _buildActionTile({required BuildContext context, required IconData icon, required String text, Color? color, required VoidCallback onTap}) {
+  Widget _buildActionTile({required BuildContext context, required IconData icon, required String text, Color? color, required VoidCallback onTap, required bool isDark}) {
+    final textColor = color ?? (isDark ? Colors.white : Colors.black);
+    final iconColor = color ?? (isDark ? Colors.white : Theme.of(context).iconTheme.color);
+
     return ListTile(
-      leading: Icon(icon, color: color ?? Theme.of(context).iconTheme.color),
-      title: Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w500)),
+      leading: Icon(icon, color: iconColor),
+      title: Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
       onTap: onTap,
     );
   }
 
-  Widget _buildSettingItem({required IconData icon, required String title, required Widget trailing}) {
+  Widget _buildSettingItem({required IconData icon, required String title, required Widget trailing, required bool isDark}) {
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final iconColor = isDark ? Colors.grey[400] : Colors.grey.shade700;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      color: cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            Icon(icon, color: Colors.grey.shade700),
+            Icon(icon, color: iconColor),
             const SizedBox(width: 16),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+            Expanded(child: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: textColor))),
             trailing,
           ],
         ),
