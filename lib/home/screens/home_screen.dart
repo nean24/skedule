@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:draggable_fab/draggable_fab.dart';
+// Nhớ import file widget này
+import 'package:skedule/widgets/ai_chat_bubble.dart';
 import 'package:skedule/home/screens/calendar_screen.dart';
-import 'package:skedule/home/screens/ai_agent_screen.dart'; // <<< GIỮ NGUYÊN IMPORT NÀY
+import 'package:skedule/home/screens/ai_agent_screen.dart';
 import 'package:skedule/home/screens/dashboard_page.dart';
 import 'package:skedule/home/screens/preferences_screen.dart';
 import 'package:skedule/home/screens/note_screen.dart';
@@ -89,55 +90,27 @@ class _HomeScreenState extends State<HomeScreen> {
         children: _mainPages,
       ),
 
-      // --- SỬA NÚT AI Ở ĐÂY ---
-      floatingActionButton: DraggableFab(
-        child: Container(
-          height: 70.0, // Làm nút to hơn một chút cho nổi bật
-          width: 70.0,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            // Thêm gradient để nút AI trông hiện đại hơn
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF4A6C8B), // Màu chính
-                Color(0xFF2C4E6D), // Màu đậm hơn chút
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4A6C8B).withOpacity(0.4),
-                spreadRadius: 2,
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: FloatingActionButton(
-            // Để transparent để thấy màu gradient của Container
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            onPressed: () {
-              // Chuyển hướng sang màn hình AI Agent
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AiAgentScreen()),
-              );
-            },
-            shape: const CircleBorder(),
-            // Dùng ảnh từ assets
-            child: Padding(
-              padding: const EdgeInsets.all(12.0), // Căn chỉnh ảnh cho vừa vặn
-              child: Image.asset(
-                'assets/ai_robot.png', // Đảm bảo bạn đã khai báo trong pubspec.yaml
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
+      // --- SỬA NÚT AI GỌN GÀNG ---
+      // Ta dùng một Container để giữ kích thước lớn hơn FAB mặc định một chút (70 vs 56)
+      floatingActionButton: SizedBox(
+        width: 70,
+        height: 70,
+        child: FloatingActionButton(
+          // Để màu trong suốt vì AiChatBubble đã có màu nền rồi
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AiAgentScreen()),
+            );
+          },
+          shape: const CircleBorder(),
+          // Gọi widget bong bóng chat đã sửa màu ở Bước 1
+          child: const AiChatBubble(),
         ),
       ),
-      // ------------------------
+      // ----------------------------
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
@@ -152,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icons.calendar_month_rounded,
                 label: 'Calendar',
                 index: 1),
-            const SizedBox(width: 48), // Khoảng trống cho FAB chính
+            const SizedBox(width: 48), // Khoảng trống cho nút AI
             _buildNavItem(
                 icon: Icons.note_alt_rounded, label: 'Notes', index: 2),
             _buildNavItem(
@@ -169,7 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return IconButton(
       icon: Icon(
         icon,
-        color: isSelected ? const Color(0xFF4A6C8B) : Colors.grey.shade400,
+        // Dùng màu AppColors.primaryBlue để đồng bộ (giá trị 0xFF455A75)
+        color: isSelected ? const Color(0xFF455A75) : Colors.grey.shade400,
         size: 28,
       ),
       onPressed: () => _onNavItemTapped(index),

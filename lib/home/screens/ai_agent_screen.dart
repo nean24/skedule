@@ -38,7 +38,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   @override
   void initState() {
     super.initState();
-    // Initial message will be set in build or handled differently to support localization
   }
 
   @override
@@ -83,7 +82,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
     if (text != null) _textController.clear();
 
     setState(() {
-      // Nếu là tin nhắn văn bản, thêm vào UI ngay
       if (text != null) {
         _messages.insert(0, ChatMessage(text: text, isUser: true));
       }
@@ -131,7 +129,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
             settings.strings.translate('error_no_response');
         final String audioBase64 = decodedResponse['audio_base64'] ?? '';
 
-        // Nếu input là audio, giờ chúng ta mới thêm tin nhắn của người dùng vào UI
         if (userPrompt != null) {
           _addMessageToChat(userPrompt, isUser: true);
         }
@@ -170,7 +167,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
       final path = await _audioRecorder.stop();
       if (path != null) {
         setState(() => _isRecording = false);
-        // Không thêm tin nhắn tạm thời nữa, chỉ gửi file đi
         _sendMessage(audioFilePath: path);
       }
     } else {
@@ -207,9 +203,29 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+
+    // --- ĐỒNG BỘ MÀU SẮC VỚI CALENDAR/DASHBOARD ---
+    // Light: 0xFFDDE3ED (Xám xanh), Dark: 0xFF121212 (Đen)
+    final backgroundColor =
+        isDark ? const Color(0xFF121212) : const Color(0xFFDDE3ED);
+
+    // Màu chữ
+    final textColor =
+        isDark ? const Color(0xFFE0E0E0) : const Color(0xFF2D3142);
+
+    // Màu khung chat (Card)
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    // ----------------------------------------------
+
     return Scaffold(
+      backgroundColor: backgroundColor, // Áp dụng màu nền đồng bộ
       appBar: AppBar(
-        title: Text(settings.strings.translate('skedule_ai')),
+        title: Text(settings.strings.translate('skedule_ai'),
+            style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        backgroundColor: backgroundColor, // AppBar cùng màu nền
+        elevation: 0, // Bỏ bóng để trông phẳng và liền mạch
+        iconTheme: IconThemeData(color: textColor), // Icon màu tương phản
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -222,7 +238,8 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
         children: [
           Flexible(
             child: ListView.builder(
-              padding: const EdgeInsets.all(8.0),
+              padding:
+                  const EdgeInsets.all(16.0), // Tăng padding chút cho thoáng
               reverse: true,
               itemCount: _messages.length,
               itemBuilder: (_, int index) {
@@ -233,61 +250,117 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
                       : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.symmetric(
-                        vertical: 4.0, horizontal: 8.0),
+                        vertical: 6.0, horizontal: 4.0),
                     padding: const EdgeInsets.symmetric(
-                        vertical: 10.0, horizontal: 14.0),
+                        vertical: 12.0, horizontal: 16.0),
                     decoration: BoxDecoration(
-                      color:
-                          message.isUser ? Colors.blue[100] : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(16.0),
+                      // Bong bóng chat User: Màu xanh (giữ nguyên hoặc chỉnh nhẹ)
+                      // Bong bóng chat AI: Màu trắng (Light) hoặc xám đậm (Dark) để nổi trên nền
+                      color: message.isUser
+                          ? Colors.blue[600]
+                          : (isDark ? const Color(0xFF2C2C2C) : Colors.white),
+                      borderRadius: BorderRadius.circular(20.0),
+                      boxShadow: [
+                        // Thêm bóng nhẹ cho bong bóng chat để tách biệt khỏi nền
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
                     ),
-                    child: Text(message.text),
+                    child: Text(
+                      message.text,
+                      style: TextStyle(
+                        color: message.isUser
+                            ? Colors.white
+                            : (isDark ? Colors.white : Colors.black87),
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 );
               },
             ),
           ),
-          if (_isLoading) const LinearProgressIndicator(),
-          const Divider(height: 1.0),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child:
+                  LinearProgressIndicator(backgroundColor: Colors.transparent),
+            ),
+
+          // --- KHU VỰC NHẬP LIỆU ---
           Container(
-            decoration: BoxDecoration(color: Theme.of(context).cardColor),
-            child: _buildTextComposer(),
+            padding: const EdgeInsets.only(
+                bottom: 10), // Padding cho safe area nếu cần
+            decoration: BoxDecoration(
+              color: cardColor, // Màu nền trắng/đen cho khung nhập
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(25)), // Bo tròn góc trên
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                )
+              ],
+            ),
+            child: _buildTextComposer(textColor, isDark),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTextComposer() {
+  Widget _buildTextComposer(Color textColor, bool isDark) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
         children: [
           Flexible(
             child: TextField(
               controller: _textController,
+              style: TextStyle(color: textColor),
               onSubmitted:
                   _isLoading ? null : (text) => _sendMessage(text: text),
-              decoration: const InputDecoration.collapsed(
-                  hintText: 'Nhập hoặc giữ nút micro để nói...'),
+              decoration: InputDecoration(
+                hintText: 'Nhập hoặc giữ nút micro để nói...',
+                hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+                border: InputBorder.none, // Bỏ viền mặc định của TextField
+              ),
               enabled: !_isLoading,
             ),
           ),
-          IconButton(
-            icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic),
-            onPressed: _isLoading ? null : _handleRecord,
-            color: _isRecording
-                ? Colors.redAccent
-                : Theme.of(context).primaryColor,
-            iconSize: 28,
+          // Nút Micro
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: _isRecording
+                  ? Colors.red.withOpacity(0.1)
+                  : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic),
+              onPressed: _isLoading ? null : _handleRecord,
+              color: _isRecording
+                  ? Colors.redAccent
+                  : Theme.of(context).primaryColor,
+              iconSize: 24,
+            ),
           ),
+          // Nút Gửi
           IconButton(
             icon: _isLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.0))
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.0,
+                        color: Theme.of(context).primaryColor))
                 : const Icon(Icons.send),
+            color: Theme.of(context).primaryColor,
             onPressed: _isLoading
                 ? null
                 : () => _sendMessage(text: _textController.text),
