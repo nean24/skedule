@@ -44,6 +44,7 @@ flutter:
   assets:
     - assets/google_logo.png
     - assets/app_logo.jpg
+    - assets/ai_robot.png
     - .env
 
 # flutter_launcher_icons config (same level as `flutter:`)

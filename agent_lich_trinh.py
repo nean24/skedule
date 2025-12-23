@@ -32,7 +32,7 @@ from utils.thoi_gian_tu_nhien import parse_natural_time
 from app_dependencies import get_current_user_id, engine, supabase
 # from payment_service import router as payment_router
 
-# --- 1. CẤU HÌNH & KẾT NỐI ---
+# --- 1. CẤU HÌNH ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -48,11 +48,16 @@ llm_brain = ChatGoogleGenerativeAI(
 
 # --- 2. XỬ LÝ ÂM THANH ---
 def clean_text_for_speech(text: str) -> str:
-    return text.replace('*', '').replace('_', '').replace('-', '.')
+    # Loại bỏ các ký tự markdown để giọng đọc tự nhiên hơn
+    return text.replace('*', '').replace('#', '').replace('-', ' ').replace('_', '')
 
 def text_to_base64_audio(text: str) -> str:
     try:
-        tts = gTTS(clean_text_for_speech(text), lang='vi')
+        if not text:
+            return ""
+        # Chỉ đọc 200 ký tự đầu để tránh chờ lâu nếu phản hồi quá dài
+        short_text = clean_text_for_speech(text)[:200]
+        tts = gTTS(short_text, lang='vi')
         audio_fp = io.BytesIO()
         tts.write_to_fp(audio_fp)
         audio_fp.seek(0)
@@ -93,9 +98,9 @@ def tao_su_kien_toan_dien(tieu_de: str, loai_su_kien: str, user_id: str, mo_ta: 
                           bat_dau: Optional[str] = None, ket_thuc: Optional[str] = None,
                           uu_tien: str = 'medium') -> str:
     """
-    Tạo sự kiện trung tâm (Event) và các thành phần liên quan (Task/Schedule).
-    loai_su_kien: 'task', 'class', 'workshift', 'deadline', 'schedule', 'custom'.
-    uu_tien: 'low', 'medium', 'high'.
+    Tạo sự kiện/task. TỰ ĐỘNG CẢNH BÁO nếu trùng giờ.
+    loai_su_kien: task, schedule, class, workshift, deadline.
+    uu_tien: cao, trung bình, thấp.
     """
     try:
         with engine.connect() as conn:
@@ -147,6 +152,39 @@ def tao_su_kien_toan_dien(tieu_de: str, loai_su_kien: str, user_id: str, mo_ta: 
         return f"❌ Có lỗi xảy ra: {str(e)}"
 
 @tool
+def cap_nhat_su_kien(tieu_de_cu: str, thoi_gian_moi: str, user_id: str) -> str:
+    """Dùng khi user muốn 'dời lịch', 'sắp xếp lại', 'đổi giờ'."""
+    try:
+        with engine.connect() as conn:
+            with conn.begin():
+                # Tìm event
+                event = conn.execute(text("SELECT id, start_time FROM events WHERE user_id = :uid AND title ILIKE :t LIMIT 1"),
+                                     {"uid": user_id, "t": f"%{tieu_de_cu}%"}).fetchone()
+                if not event:
+                    return "⚠️ Không tìm thấy sự kiện để dời."
+
+                # Tính giờ mới
+                new_start, new_end = parse_natural_time(
+                    thoi_gian_moi, datetime.now())
+                if not new_end:
+                    new_end = new_start + timedelta(hours=1)
+
+                # Update
+                conn.execute(text("""
+                    UPDATE events SET start_time = :s, end_time = :e, updated_at = NOW() 
+                    WHERE id = :id
+                """), {"s": new_start, "e": new_end, "id": event.id})
+
+                # Update các bảng con (Cascade thường không tự update time, nên làm thủ công cho chắc)
+                conn.execute(text("UPDATE schedules SET start_time=:s, end_time=:e WHERE event_id=:id"),
+                             {"s": new_start, "e": new_end, "id": event.id})
+
+                return f"✅ Đã dời '{tieu_de_cu}' sang {new_start}."
+    except Exception as e:
+        return f"Lỗi update: {e}"
+
+
+@tool
 def tao_ghi_chu_thong_minh(noi_dung: str, user_id: str, context_title: Optional[str] = None) -> str:
     """Tạo ghi chú gắn liền với Event hoặc Task cụ thể (XOR logic)."""
     with engine.connect() as conn:
@@ -179,6 +217,195 @@ def xoa_su_kien_toan_tap(tieu_de: str, user_id: str) -> str:
 tools = [lay_ten_nguoi_dung, tao_su_kien_toan_dien,
          tao_ghi_chu_thong_minh, xoa_su_kien_toan_tap]
 
+            # 3. Đếm Sự kiện tuần này
+            event_count = conn.execute(text("""
+                SELECT COUNT(*) FROM events 
+                WHERE user_id = :uid 
+                AND start_time >= CURRENT_DATE 
+                AND start_time < CURRENT_DATE + INTERVAL '7 days'
+            """), {"uid": user_id}).scalar()
+
+            return (
+                f"📊 BÁO CÁO TỔNG QUAN:\n"
+                f"- Công việc: {task_stats.todo} cần làm, {task_stats.doing} đang làm, {task_stats.done} đã xong.\n"
+                f"- Ghi chú: {note_count} ghi chú đã lưu.\n"
+                f"- Lịch trình: {event_count} sự kiện trong 7 ngày tới."
+            )
+    except Exception as e:
+        return f"Lỗi thống kê: {e}"
+
+
+@tool
+def liet_ke_danh_sach(user_id: str, loai: str = 'all', gioi_han: int = 5) -> str:
+    """
+    Liệt kê danh sách. Tự động chọn bảng 'notes' hoặc 'events' tùy theo yêu cầu.
+    """
+    try:
+        with engine.connect() as conn:
+            # TRƯỜNG HỢP 1: LIỆT KÊ GHI CHÚ (Query bảng notes)
+            if loai in ['ghi chú', 'note']:
+                query = text("""
+                    SELECT content, created_at 
+                    FROM notes 
+                    WHERE user_id = :uid 
+                    ORDER BY created_at DESC 
+                    LIMIT :limit
+                """)
+                rows = conn.execute(
+                    query, {"uid": user_id, "limit": gioi_han}).fetchall()
+
+                if not rows:
+                    return "📭 Bạn chưa có ghi chú nào."
+
+                result = f"📝 DANH SÁCH GHI CHÚ ({len(rows)} mục mới nhất):\n"
+                for row in rows:
+                    date_str = row.created_at.strftime(
+                        '%d/%m') if row.created_at else ""
+                    # Lấy 50 ký tự đầu làm tiêu đề
+                    preview = row.content.split('\n')[0][:50]
+                    result += f"- [{date_str}] {preview}...\n"
+                return result
+
+            # TRƯỜNG HỢP 2: LIỆT KÊ SỰ KIỆN/TASK (Query bảng events)
+            else:
+                base_query = "SELECT title, type, start_time, description FROM events WHERE user_id = :uid"
+
+                # Lọc theo loại task/deadline/schedule
+                if loai not in ['all', 'tất cả']:
+                    # Map loại
+                    if loai in ['công việc', 'task']:
+                        db_type = 'task'
+                    elif loai in ['hạn', 'deadline']:
+                        db_type = 'deadline'
+                    elif loai in ['lịch', 'schedule']:
+                        db_type = 'schedule'
+                    else:
+                        db_type = loai  # Mặc định
+
+                    base_query += f" AND type = '{db_type}'"
+
+                # Sắp xếp
+                query = text(
+                    base_query + " ORDER BY start_time ASC NULLS LAST LIMIT :limit")
+                rows = conn.execute(
+                    query, {"uid": user_id, "limit": gioi_han}).fetchall()
+
+                if not rows:
+                    return f"📭 Không tìm thấy mục nào thuộc loại '{loai}'."
+
+                result = f"📋 DANH SÁCH {loai.upper()} ({len(rows)} mục):\n"
+                for row in rows:
+                    time_str = row.start_time.strftime(
+                        '%d/%m %H:%M') if row.start_time else "---"
+                    result += f"- [{row.type}] **{row.title}** ({time_str})\n"
+                return result
+
+    except Exception as e:
+        return f"Lỗi liệt kê: {e}"
+
+
+@tool
+def xem_chi_tiet_su_kien(user_id: str, tu_khoa: str) -> str:
+    """
+    Tìm kiếm thông minh (Full Text Search) trong cả EVENT và NOTE.
+    Chấp nhận từ khóa không cần chính xác tuyệt đối (VD: 'ý tưởng giao diện' vẫn tìm ra 'ý tưởng làm giao diện').
+    """
+    try:
+        with engine.connect() as conn:
+            # --- KỸ THUẬT: Dùng to_tsvector @@ plainto_tsquery ---
+            # Hàm này sẽ tách 'ý tưởng giao diện' thành: tìm 'ý' VÀ 'tưởng' VÀ 'giao' VÀ 'diện'
+            # Bất kể các từ này nằm cách xa nhau bao nhiêu trong câu.
+
+            search_condition = """
+                (
+                    title ILIKE :kw_like              -- Cách 1: Tìm chính xác (như cũ)
+                    OR 
+                    to_tsvector('simple', title) @@ plainto_tsquery('simple', :kw_plain) -- Cách 2: Tìm theo từ khóa
+                )
+            """
+
+            # 1. Tìm trong bảng EVENTS
+            event = conn.execute(text(f"""
+                SELECT id, title, description, type, start_time, end_time 
+                FROM events 
+                WHERE user_id = :uid 
+                AND {search_condition}
+                LIMIT 1
+            """), {
+                "uid": user_id,
+                "kw_like": f"%{tu_khoa}%",
+                "kw_plain": tu_khoa
+            }).fetchone()
+
+            if event:
+                details = (
+                    f"🔎 CHI TIẾT SỰ KIỆN: {event.title.upper()}\n"
+                    f"- Loại: {event.type}\n"
+                    f"- Thời gian: {event.start_time} -> {event.end_time}\n"
+                    f"- Mô tả: {event.description or 'Không có'}\n"
+                )
+
+                if event.type in ['task', 'deadline']:
+                    task = conn.execute(text("SELECT priority, status, deadline FROM tasks WHERE event_id = :eid"), {
+                                        "eid": event.id}).fetchone()
+                    if task:
+                        details += f"- Ưu tiên: {task.priority} | Trạng thái: {task.status}\n"
+
+                    checklists = conn.execute(text("SELECT item_text, is_done FROM checklist_items WHERE task_id = (SELECT id FROM tasks WHERE event_id = :eid)"), {
+                                              "eid": event.id}).fetchall()
+                    if checklists:
+                        details += "- Checklist:\n" + \
+                            "\n".join(
+                                [f"  [{'x' if c.is_done else ' '}] {c.item_text}" for c in checklists])
+
+                return details
+
+            # 2. Tìm trong bảng NOTES (Áp dụng logic tương tự cho cột content)
+            note_condition = """
+                (
+                    content ILIKE :kw_like 
+                    OR 
+                    to_tsvector('simple', content) @@ plainto_tsquery('simple', :kw_plain)
+                )
+            """
+
+            note = conn.execute(text(f"""
+                SELECT content, created_at 
+                FROM notes 
+                WHERE user_id = :uid 
+                AND {note_condition}
+                LIMIT 1
+            """), {
+                "uid": user_id,
+                "kw_like": f"%{tu_khoa}%",
+                "kw_plain": tu_khoa
+            }).fetchone()
+
+            if note:
+                return f"📝 CHI TIẾT GHI CHÚ (Ngày tạo: {note.created_at.strftime('%d/%m/%Y') if note.created_at else 'N/A'}):\n\n{note.content}"
+
+            return f"⚠️ Không tìm thấy Sự kiện hay Ghi chú nào khớp với '{tu_khoa}'."
+
+    except Exception as e:
+        return f"Lỗi tìm kiếm: {e}"
+# --- 4. CẤU HÌNH AGENT & PROMPT ---
+
+
+# --- CẬP NHẬT LIST TOOLS ---
+tools = [
+    lay_ten_nguoi_dung,
+    tao_su_kien_toan_dien,
+    lay_lich_trinh_tuan,
+    cap_nhat_su_kien,
+    tao_ghi_chu_thong_minh,
+    xoa_su_kien_toan_tap,
+    # Thêm 3 tool mới:
+    thong_ke_tong_quan,
+    liet_ke_danh_sach,
+    xem_chi_tiet_su_kien
+]
+
+# --- CẬP NHẬT SYSTEM PROMPT ---
 system_prompt = f"""
 Bạn là Skedule AI Agent. Hôm nay là {date.today().strftime('%d/%m/%Y')}
 
