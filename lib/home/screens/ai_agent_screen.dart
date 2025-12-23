@@ -38,7 +38,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   @override
   void initState() {
     super.initState();
-    // Initial message will be set in build or handled differently to support localization
   }
 
   @override
@@ -83,7 +82,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
     if (text != null) _textController.clear();
 
     setState(() {
-      // Nếu là tin nhắn văn bản, thêm vào UI ngay
       if (text != null) {
         _messages.insert(0, ChatMessage(text: text, isUser: true));
       }
@@ -131,7 +129,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
             settings.strings.translate('error_no_response');
         final String audioBase64 = decodedResponse['audio_base64'] ?? '';
 
-        // Nếu input là audio, giờ chúng ta mới thêm tin nhắn của người dùng vào UI
         if (userPrompt != null) {
           _addMessageToChat(userPrompt, isUser: true);
         }
@@ -170,7 +167,6 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
       final path = await _audioRecorder.stop();
       if (path != null) {
         setState(() => _isRecording = false);
-        // Không thêm tin nhắn tạm thời nữa, chỉ gửi file đi
         _sendMessage(audioFilePath: path);
       }
     } else {
