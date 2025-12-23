@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 // Nhớ import file widget này
 import 'package:skedule/widgets/ai_chat_bubble.dart';
 import 'package:skedule/home/screens/calendar_screen.dart';
@@ -19,21 +20,52 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isPremium = false;
+  String _userName = 'Bạn'; // Tên mặc định
+
   final SubscriptionService _subscriptionService = SubscriptionService();
+  final _supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    _checkSubscriptionStatus();
+    _checkUserData();
   }
 
-  Future<void> _checkSubscriptionStatus() async {
-    final isPremium = await _subscriptionService.isPremium();
-    if (mounted) {
-      setState(() {
-        _isPremium = isPremium;
-      });
+  // Lấy cả tên và trạng thái Premium
+  Future<void> _checkUserData() async {
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      // 1. Lấy Premium
+      final isPremium = await _subscriptionService.isPremium();
+
+      // 2. Lấy Tên
+      final profileRes = await _supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      String rawName = profileRes?['name'] ?? 'Bạn';
+
+      if (mounted) {
+        setState(() {
+          _isPremium = isPremium;
+          _userName = _processName(rawName);
+        });
+      }
     }
+  }
+
+  // Hàm xử lý tên: Nếu dài > 12 ký tự thì chỉ lấy tên (từ cuối cùng)
+  String _processName(String fullName) {
+    if (fullName.trim().isEmpty) return 'Bạn';
+    if (fullName.length > 12) {
+      final parts = fullName.trim().split(' ');
+      if (parts.isNotEmpty) {
+        return parts.last; // Lấy từ cuối cùng (Tên)
+      }
+    }
+    return fullName; // Tên ngắn thì giữ nguyên
   }
 
   static final List<Widget> _mainPages = <Widget>[
@@ -59,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const PaymentScreen()),
-    );
+    ).then((_) => _checkUserData()); // Check lại khi quay về (เผื่อ mua xong)
   }
 
   void _onNavItemTapped(int index) {
@@ -75,28 +107,35 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // --- APP BAR ĐÃ SỬA ---
       appBar: AppBar(
-        title: const Text('Skedule'),
+        // Hiển thị lời chào thay vì tên App
+        title: Text(
+          'Xin chào, $_userName',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.workspace_premium),
-            onPressed: _navigateToPayment,
-            tooltip: 'Upgrade to Premium',
-          ),
+          // Chỉ hiện nút Premium nếu chưa mua
+          if (!_isPremium)
+            IconButton(
+              icon: const Icon(Icons.workspace_premium, color: Colors.orange),
+              onPressed: _navigateToPayment,
+              tooltip: 'Nâng cấp Premium',
+            ),
         ],
       ),
+      // ----------------------
+
       body: IndexedStack(
         index: _selectedIndex,
         children: _mainPages,
       ),
 
-      // --- SỬA NÚT AI GỌN GÀNG ---
-      // Ta dùng một Container để giữ kích thước lớn hơn FAB mặc định một chút (70 vs 56)
+      // --- NÚT AI ---
       floatingActionButton: SizedBox(
         width: 70,
         height: 70,
         child: FloatingActionButton(
-          // Để màu trong suốt vì AiChatBubble đã có màu nền rồi
           backgroundColor: Colors.transparent,
           elevation: 0,
           onPressed: () {
@@ -106,11 +145,10 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
           shape: const CircleBorder(),
-          // Gọi widget bong bóng chat đã sửa màu ở Bước 1
           child: const AiChatBubble(),
         ),
       ),
-      // ----------------------------
+      // ---------------
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
@@ -142,7 +180,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return IconButton(
       icon: Icon(
         icon,
-        // Dùng màu AppColors.primaryBlue để đồng bộ (giá trị 0xFF455A75)
         color: isSelected ? const Color(0xFF455A75) : Colors.grey.shade400,
         size: 28,
       ),

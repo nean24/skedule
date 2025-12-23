@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
 import 'package:skedule/widgets/stat_card.dart';
 import 'package:skedule/widgets/task_card.dart';
-import 'package:skedule/home/screens/event_detail_screen.dart'; // Đảm bảo bạn đã tạo file này
+import 'package:skedule/home/screens/event_detail_screen.dart';
+import 'package:skedule/home/screens/help_screen.dart'; // <--- Đã thêm import trang Help
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -250,7 +251,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // --- CÁC WIDGET CON (HEADER, STATS, LIST...) ---
+  // --- CÁC WIDGET CON ---
 
   Widget _buildHeader() {
     final settings = Provider.of<SettingsProvider>(context);
@@ -282,6 +283,32 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
             ),
           ),
+
+          // --- NÚT HƯỚNG DẪN (DẤU ?) MỚI THÊM ---
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HelpScreen()),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: cardColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.04), blurRadius: 10)
+                ],
+              ),
+              child: Icon(Icons.help_outline_rounded,
+                  color: subTextColor, size: 24),
+            ),
+          ),
+          // ----------------------------------------
+
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -389,7 +416,6 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: isTask ? Icons.task_alt : Icons.event,
             borderColor: isTask ? Colors.orange : Colors.purple,
             isTask: isTask,
-            // --- THÊM SỰ KIỆN BẤM VÀO ---
             onTap: () => _navigateToDetail(item, isTask),
           );
         }).toList(),
@@ -414,9 +440,7 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: Icons.error_outline,
             borderColor: Colors.red,
             isTask: true,
-            // --- THÊM SỰ KIỆN BẤM VÀO ---
-            onTap: () =>
-                _navigateToDetail(item, true), // Missed items luôn là Task
+            onTap: () => _navigateToDetail(item, true),
           );
         }).toList(),
       ),
