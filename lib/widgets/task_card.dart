@@ -1,5 +1,7 @@
 // lib/widgets/task_card.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:skedule/features/settings/settings_provider.dart';
 
 class TaskCard extends StatelessWidget {
   final String title;
@@ -31,16 +33,26 @@ class TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+
+    final backgroundColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey[600];
+    final iconColor = isDark ? Colors.grey[400] : Colors.grey[700];
+    final borderColorSide = isDark ? Colors.grey[800]! : Colors.grey[200]!;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey[200]!),
+        side: BorderSide(color: borderColorSide),
       ),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(16),
           border: Border(
             left: BorderSide(color: borderColor, width: 5),
@@ -53,7 +65,7 @@ class TaskCard extends StatelessWidget {
             else
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Icon(icon, color: Colors.grey[700], size: 20),
+                child: Icon(icon, color: iconColor, size: 20),
               ),
 
             Expanded(
@@ -63,13 +75,13 @@ class TaskCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     subtitle,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(color: subtitleColor, fontSize: 12),
                     maxLines: 1,
                   ),
                   const SizedBox(height: 6),
@@ -78,8 +90,8 @@ class TaskCard extends StatelessWidget {
                     spacing: 12,
                     runSpacing: 4,
                     children: [
-                      _buildInfoRow(Icons.access_time, time),
-                      _buildInfoRow(Icons.location_on, location),
+                      _buildInfoRow(Icons.access_time, time, subtitleColor ?? Colors.grey),
+                      _buildInfoRow(Icons.location_on, location, subtitleColor ?? Colors.grey),
                     ],
                   ),
                 ],
@@ -101,15 +113,16 @@ class TaskCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
+  Widget _buildInfoRow(IconData icon, String text, Color color) {
+    if (text.isEmpty) return const SizedBox.shrink();
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: Colors.grey[600]),
+        Icon(icon, size: 14, color: color),
         const SizedBox(width: 4),
         Text(
           text,
-          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+          style: TextStyle(fontSize: 12, color: color),
         ),
       ],
     );

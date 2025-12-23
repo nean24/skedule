@@ -53,9 +53,19 @@ class _NoteScreenState extends State<NoteScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
+    final iconColor = isDark ? Colors.grey[400] : Colors.grey[400];
+
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(settings.strings.translate('note')),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        title: Text(settings.strings.translate('note'), style: TextStyle(color: textColor)),
+        iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -84,11 +94,11 @@ class _NoteScreenState extends State<NoteScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.note_alt_outlined, size: 64, color: Colors.grey[400]),
+                      Icon(Icons.note_alt_outlined, size: 64, color: iconColor),
                       const SizedBox(height: 16),
                       Text(
                         settings.strings.translate('no_notes_yet'),
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                        style: TextStyle(color: subTextColor, fontSize: 16),
                       ),
                     ],
                   ),

@@ -58,7 +58,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (response.status == 200) {
         final data = response.data;
-        final paymentUrl = data['payment_url'];
+        final paymentUrl = data['payment_url'] ?? data['paymentUrl'];
         
         // Thêm kiểm tra null và kiểu String
         if (paymentUrl != null && paymentUrl is String) {
