@@ -114,8 +114,7 @@ def tao_su_kien_toan_dien(tieu_de: str, loai_su_kien: str, user_id: str, mo_ta: 
                     start_dt, end_dt = parse_natural_time(
                         bat_dau, datetime.now())
                 if ket_thuc:
-                    _, end_dt = parse_natural_time(
-                        ket_thuc, start_dt or datetime.now())
+                    _, end_dt = parse_natural_time(ket_thuc, start_dt or now)
 
                 # Tạo Event
                 event_id = conn.execute(text("""
