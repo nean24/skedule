@@ -290,12 +290,10 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    final isDark = settings.isDarkMode;
-    final backgroundColor =
-        isDark ? const Color(0xFF121212) : const Color(0xFFDDE3ED);
-    final textColor =
-        isDark ? const Color(0xFFE0E0E0) : const Color(0xFF2D3142);
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final colorScheme = Theme.of(context).colorScheme;
+    final backgroundColor = colorScheme.background;
+    final textColor = colorScheme.onSurface;
+    final cardColor = colorScheme.surface;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -350,8 +348,8 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
                         vertical: 12.0, horizontal: 16.0),
                     decoration: BoxDecoration(
                       color: message.isUser
-                          ? Colors.blue[600]
-                          : (isDark ? const Color(0xFF2C2C2C) : Colors.white),
+                          ? colorScheme.primary
+                          : cardColor,
                       borderRadius: BorderRadius.circular(20.0),
                       boxShadow: [
                         BoxShadow(
@@ -364,7 +362,7 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
                       style: TextStyle(
                           color: message.isUser
                               ? Colors.white
-                              : (isDark ? Colors.white : Colors.black87)),
+                              : textColor),
                     ),
                   ),
                 );
@@ -434,7 +432,7 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
                           ? Colors.grey
                           : (_isRecording
                               ? Colors.redAccent
-                              : Theme.of(context).primaryColor),
+                              : colorScheme.primary),
                       iconSize: 24,
                     ),
                   ),
@@ -445,11 +443,11 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
                             height: 24,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2.0,
-                                color: Theme.of(context).primaryColor))
+                                color: colorScheme.primary))
                         : const Icon(Icons.send),
                     color: !_isPremium
                         ? Colors.grey
-                        : Theme.of(context).primaryColor,
+                        : colorScheme.primary,
                     onPressed: _isLoading
                         ? null
                         : () => _sendMessage(text: _textController.text),

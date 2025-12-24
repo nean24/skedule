@@ -17,20 +17,17 @@ class _NoteScreenState extends State<NoteScreen> {
   final _supabase = Supabase.instance.client;
   List<Note> _notes = [];
   bool _isLoading = true;
-
-  // Biến quản lý kênh lắng nghe Realtime
   RealtimeChannel? _notesSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchNotes();
-    _subscribeToNotes(); // <--- Kích hoạt lắng nghe ngay khi mở app
+    _subscribeToNotes();
   }
 
   @override
   void dispose() {
-    // Hủy đăng ký khi thoát màn hình để tránh rò rỉ bộ nhớ
     if (_notesSubscription != null) {
       _supabase.removeChannel(_notesSubscription!);
     }
@@ -84,30 +81,31 @@ class _NoteScreenState extends State<NoteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final settings = Provider.of<SettingsProvider>(context);
-    final isDark = settings.isDarkMode;
-    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final subTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
-    final iconColor = isDark ? Colors.grey[400] : Colors.grey[400];
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: backgroundColor,
+        backgroundColor: colorScheme.background,
         elevation: 0,
-        title: Text(settings.strings.translate('note'),
-            style: TextStyle(color: textColor)),
-        iconTheme: IconThemeData(color: textColor),
+        title: Text(
+          settings.strings.translate('note'),
+          style: textTheme.titleLarge?.copyWith(color: colorScheme.onBackground),
+        ),
+        iconTheme: IconThemeData(color: colorScheme.onBackground),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
+            color: colorScheme.primary,
             onPressed: () {
               // TODO: Implement search
             },
           ),
           IconButton(
             icon: const Icon(Icons.add),
+            color: colorScheme.primary,
             onPressed: () async {
               await Navigator.push(
                 context,
@@ -115,34 +113,30 @@ class _NoteScreenState extends State<NoteScreen> {
                   builder: (context) => const NoteDetailScreen(),
                 ),
               );
-              // Reload thủ công sau khi quay về (dự phòng nếu Realtime chậm)
               _fetchNotes();
             },
           ),
         ],
       ),
-      // Thêm RefreshIndicator để user có thể kéo xuống reload thủ công
       body: RefreshIndicator(
         onRefresh: _fetchNotes,
-        color: Theme.of(context).primaryColor,
+        color: colorScheme.primary,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _notes.isEmpty
                 ? Center(
                     child: SingleChildScrollView(
-                      // Để RefreshIndicator hoạt động cần scrollable
                       physics: const AlwaysScrollableScrollPhysics(),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.note_alt_outlined,
-                              size: 64, color: iconColor),
+                              size: 64, color: colorScheme.primary.withOpacity(0.5)),
                           const SizedBox(height: 16),
                           Text(
                             settings.strings.translate('no_notes_yet'),
-                            style: TextStyle(color: subTextColor, fontSize: 16),
+                            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onBackground.withOpacity(0.6), fontSize: 16),
                           ),
-                          // Trick để chiếm chiều cao màn hình, giúp kéo refresh được
                           SizedBox(
                               height: MediaQuery.of(context).size.height * 0.4),
                         ],
@@ -150,8 +144,7 @@ class _NoteScreenState extends State<NoteScreen> {
                     ),
                   )
                 : ListView.builder(
-                    physics:
-                        const AlwaysScrollableScrollPhysics(), // Quan trọng cho RefreshIndicator
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     itemCount: _notes.length,
                     itemBuilder: (context, index) {
@@ -162,11 +155,9 @@ class _NoteScreenState extends State<NoteScreen> {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  NoteDetailScreen(note: note),
+                              builder: (context) => NoteDetailScreen(note: note),
                             ),
                           );
-                          // Không cần gọi _fetchNotes() ở đây vì Realtime sẽ tự bắt update
                         },
                       );
                     },

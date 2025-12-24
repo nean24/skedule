@@ -106,38 +106,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      // --- APP BAR ĐÃ SỬA ---
       appBar: AppBar(
-        // Hiển thị lời chào thay vì tên App
+        backgroundColor: colorScheme.background,
+        elevation: 0,
         title: Text(
           'Xin chào, $_userName',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold, color: colorScheme.onBackground),
         ),
         actions: [
-          // Chỉ hiện nút Premium nếu chưa mua
           if (!_isPremium)
             IconButton(
-              icon: const Icon(Icons.workspace_premium, color: Colors.orange),
+              icon: Icon(Icons.workspace_premium, color: colorScheme.secondary),
               onPressed: _navigateToPayment,
               tooltip: 'Nâng cấp Premium',
             ),
         ],
       ),
-      // ----------------------
-
       body: IndexedStack(
         index: _selectedIndex,
         children: _mainPages,
       ),
-
-      // --- NÚT AI ---
       floatingActionButton: SizedBox(
         width: 70,
         height: 70,
         child: FloatingActionButton(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
+          backgroundColor: colorScheme.primary,
+          elevation: 4,
           onPressed: () {
             Navigator.push(
               context,
@@ -148,39 +146,43 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const AiChatBubble(),
         ),
       ),
-      // ---------------
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
+        color: colorScheme.surface,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             _buildNavItem(
-                icon: Icons.dashboard_rounded, label: 'Dashboard', index: 0),
+                icon: Icons.dashboard_rounded, label: 'Dashboard', index: 0, colorScheme: colorScheme),
             _buildNavItem(
                 icon: Icons.calendar_month_rounded,
                 label: 'Calendar',
-                index: 1),
-            const SizedBox(width: 48), // Khoảng trống cho nút AI
+                index: 1,
+                colorScheme: colorScheme),
+            const SizedBox(width: 48),
             _buildNavItem(
-                icon: Icons.note_alt_rounded, label: 'Notes', index: 2),
+                icon: Icons.note_alt_rounded, label: 'Notes', index: 2, colorScheme: colorScheme),
             _buildNavItem(
-                icon: Icons.settings_rounded, label: 'Preferences', index: 3),
+                icon: Icons.settings_rounded, label: 'Preferences', index: 3, colorScheme: colorScheme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(
-      {required IconData icon, required String label, required int index}) {
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+    required ColorScheme colorScheme,
+  }) {
     final isSelected = _selectedIndex == index && index != 3;
     return IconButton(
       icon: Icon(
         icon,
-        color: isSelected ? const Color(0xFF455A75) : Colors.grey.shade400,
+        color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.5),
         size: 28,
       ),
       onPressed: () => _onNavItemTapped(index),

@@ -102,6 +102,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // ===========================================================================
   Future<void> _showAddEventSheet(BuildContext context,
       {String? preTitle, String? preType, String? preDesc}) async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     final titleController = TextEditingController(text: preTitle ?? '');
     final descController = TextEditingController(text: preDesc ?? '');
     final noteController = TextEditingController();
@@ -113,7 +114,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     TimeOfDay endTime =
         TimeOfDay.now().replacing(hour: TimeOfDay.now().hour + 1);
 
-    String selectedType = preType ?? 'Task';
+    String selectedType = preType ?? settings.strings.translate('task');
     String selectedPriority = 'medium';
     List<String> selectedTags = [];
     List<String> checklistItems = [];
@@ -121,11 +122,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     String? customTypeInput;
 
     final List<String> eventTypes = [
-      'Task',
-      'Schedule',
-      'Workshift',
-      'Deadline',
-      'Custom'
+      settings.strings.translate('task'),
+      settings.strings.translate('schedule'),
+      settings.strings.translate('workshift'),
+      settings.strings.translate('deadline'),
+      settings.strings.translate('custom'),
     ];
     final List<String> priorities = ['low', 'medium', 'high'];
 
@@ -137,14 +138,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             bool showTaskFields =
-                ['Task', 'Deadline', 'Custom'].contains(selectedType);
-            bool showTagInput = selectedType == 'Custom';
+                [settings.strings.translate('task'), settings.strings.translate('deadline'), settings.strings.translate('custom')].contains(selectedType);
+            bool showTagInput = selectedType == settings.strings.translate('custom');
+
+            // Lấy theme hiện tại
+            final colorScheme = Theme.of(context).colorScheme;
+            final bgColor = colorScheme.surface;
+            final textColor = colorScheme.onSurface;
+            final inputFillColor = Theme.of(context).inputDecorationTheme.fillColor ?? Colors.grey[50];
+            final hintColor = Theme.of(context).inputDecorationTheme.labelStyle?.color ?? Colors.grey[600];
 
             return Container(
               height: MediaQuery.of(context).size.height * 0.9,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
               ),
               padding: EdgeInsets.fromLTRB(
                   20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
@@ -164,11 +172,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Thêm sự kiện mới',
+                        Text(settings.strings.translate('add_event'),
                             style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textDark)),
+                                color: textColor)),
                         Icon(_getIconForType(selectedType),
                             color: AppColors.primaryBlue, size: 28),
                       ],
@@ -179,12 +187,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     DropdownButtonFormField<String>(
                       value: eventTypes.contains(selectedType)
                           ? selectedType
-                          : 'Task',
+                          : settings.strings.translate('task'),
+                      dropdownColor: bgColor,
+                      style: TextStyle(color: textColor),
                       decoration:
-                          _inputDecoration('Loại sự kiện', Icons.category),
+                          _inputDecoration(settings.strings.translate('event_type'), Icons.category, fillColor: inputFillColor, labelColor: hintColor),
                       items: eventTypes
                           .map(
-                              (t) => DropdownMenuItem(value: t, child: Text(t)))
+                              (t) => DropdownMenuItem(value: t, child: Text(t, style: TextStyle(color: textColor))))
                           .toList(),
                       onChanged: (val) =>
                           setModalState(() => selectedType = val!),
@@ -194,8 +204,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     // Custom Type Input
                     if (showTagInput) ...[
                       TextField(
+                        style: TextStyle(color: textColor),
                         decoration: _inputDecoration(
-                            'Tên loại tùy chỉnh (VD: Gym)', Icons.edit),
+                            settings.strings.translate('custom_type_name'), Icons.edit, fillColor: inputFillColor, labelColor: hintColor),
                         onChanged: (val) => customTypeInput = val,
                       ),
                       const SizedBox(height: 12),
@@ -204,7 +215,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     // 2. Tiêu đề
                     TextField(
                       controller: titleController,
-                      decoration: _inputDecoration('Tiêu đề', Icons.title),
+                      style: TextStyle(color: textColor),
+                      decoration: _inputDecoration(settings.strings.translate('title'), Icons.title, fillColor: inputFillColor, labelColor: hintColor),
                     ),
                     const SizedBox(height: 12),
 
@@ -222,9 +234,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               if (picked != null)
                                 setModalState(() => selectedDate = picked);
                             },
-                            // FIX UI OVERFLOW: Sử dụng hàm _buildTimeBox mới
                             child: _buildTimeBox(Icons.calendar_today,
-                                DateFormat('dd/MM/yyyy').format(selectedDate)),
+                                DateFormat('dd/MM/yyyy').format(selectedDate), textColor: textColor, borderColor: colorScheme.outline),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -237,7 +248,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 setModalState(() => startTime = time);
                             },
                             child: _buildTimeBox(
-                                Icons.access_time, startTime.format(context)),
+                                Icons.access_time, startTime.format(context), textColor: textColor, borderColor: colorScheme.outline),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -250,7 +261,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 setModalState(() => endTime = time);
                             },
                             child: _buildTimeBox(Icons.access_time_filled,
-                                endTime.format(context)),
+                                endTime.format(context), textColor: textColor, borderColor: colorScheme.outline),
                           ),
                         ),
                       ],
@@ -261,17 +272,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     if (showTaskFields) ...[
                       DropdownButtonFormField<int>(
                         value: reminderTime == null ? 0 : 1,
+                        dropdownColor: bgColor,
+                        style: TextStyle(color: textColor),
                         decoration: _inputDecoration(
-                            'Nhắc nhở', Icons.notifications,
-                            iconColor: Colors.purple),
-                        items: const [
-                          DropdownMenuItem(value: 0, child: Text('Không nhắc')),
+                            settings.strings.translate('reminder'), Icons.notifications,
+                            iconColor: Colors.purple, fillColor: inputFillColor, labelColor: hintColor),
+                        items: [
+                          DropdownMenuItem(value: 0, child: Text(settings.strings.translate('no_reminder'), style: TextStyle(color: textColor))),
                           DropdownMenuItem(
-                              value: 15, child: Text('Trước 15 phút')),
+                              value: 15, child: Text(settings.strings.translate('reminder_15min'), style: TextStyle(color: textColor))),
                           DropdownMenuItem(
-                              value: 60, child: Text('Trước 1 giờ')),
+                              value: 60, child: Text(settings.strings.translate('reminder_1hour'), style: TextStyle(color: textColor))),
                           DropdownMenuItem(
-                              value: 1, child: Text('Chọn giờ cụ thể...')),
+                              value: 1, child: Text(settings.strings.translate('reminder_custom_time'), style: TextStyle(color: textColor))),
                         ],
                         onChanged: (val) async {
                           if (val == 0) {
@@ -284,8 +297,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 lastDate: DateTime(2030));
                             if (pickedDate != null) {
                               final pickedTime = await showTimePicker(
-                                  context: context,
-                                  initialTime: TimeOfDay.now());
+                                  context: context, initialTime: TimeOfDay.now());
                               if (pickedTime != null) {
                                 setModalState(() {
                                   reminderTime = DateTime(
@@ -313,7 +325,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         Padding(
                           padding: const EdgeInsets.only(top: 8, left: 12),
                           child: Text(
-                            "⏰ Sẽ nhắc lúc: ${DateFormat('dd/MM HH:mm').format(reminderTime!)}",
+                            "⏰ ${settings.strings.translate('reminder')}: ${DateFormat('dd/MM HH:mm').format(reminderTime!)}",
                             style: const TextStyle(
                                 color: Colors.purple,
                                 fontWeight: FontWeight.bold),
@@ -326,11 +338,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     if (showTaskFields) ...[
                       DropdownButtonFormField<String>(
                         value: selectedPriority,
-                        decoration: _inputDecoration('Độ ưu tiên', Icons.flag,
-                            iconColor: Colors.orange),
+                        dropdownColor: bgColor,
+                        style: TextStyle(color: textColor),
+                        decoration: _inputDecoration(settings.strings.translate('priority'), Icons.flag,
+                            iconColor: Colors.orange, fillColor: inputFillColor, labelColor: hintColor),
                         items: priorities
                             .map((p) => DropdownMenuItem(
-                                value: p, child: Text(p.toUpperCase())))
+                                value: p, child: Text(p.toUpperCase(), style: TextStyle(color: textColor))))
                             .toList(),
                         onChanged: (val) =>
                             setModalState(() => selectedPriority = val!),
@@ -342,8 +356,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     if (showTaskFields) ...[
                       TextField(
                         controller: tagController,
+                        style: TextStyle(color: textColor),
                         decoration: _inputDecoration(
-                                'Nhập Tag (Rồi bấm +)', Icons.label)
+                                settings.strings.translate('enter_tag'), Icons.label, fillColor: inputFillColor, labelColor: hintColor)
                             .copyWith(
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.add_circle,
@@ -374,11 +389,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             spacing: 8,
                             children: selectedTags
                                 .map((t) => Chip(
-                                      label: Text(t),
+                                      label: Text(t, style: TextStyle(color: textColor)),
                                       backgroundColor:
                                           AppColors.accentBlue.withOpacity(0.2),
                                       onDeleted: () => setModalState(
                                           () => selectedTags.remove(t)),
+                                      deleteIconColor: textColor,
                                     ))
                                 .toList(),
                           ),
@@ -389,15 +405,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     // 7. Checklist
                     if (showTaskFields) ...[
                       const Divider(),
-                      const Text('Checklist',
+                      Text(settings.strings.translate('checklist'),
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, color: Colors.grey)),
+                              fontWeight: FontWeight.bold, color: hintColor)),
                       ...checklistItems.asMap().entries.map((entry) => ListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.check_box_outline_blank,
-                                size: 20),
-                            title: Text(entry.value),
+                            leading: Icon(Icons.check_box_outline_blank,
+                                size: 20, color: hintColor),
+                            title: Text(entry.value, style: TextStyle(color: textColor)),
                             trailing: IconButton(
                               icon: const Icon(Icons.close,
                                   color: Colors.red, size: 20),
@@ -407,8 +423,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           )),
                       TextField(
                         controller: checklistController,
+                        style: TextStyle(color: textColor),
                         decoration: _inputDecoration(
-                                'Thêm việc nhỏ...', Icons.playlist_add)
+                                settings.strings.translate('add_checklist_item'), Icons.playlist_add, fillColor: inputFillColor, labelColor: hintColor)
                             .copyWith(
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.add,
@@ -441,16 +458,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     TextField(
                       controller: descController,
                       maxLines: 2,
-                      decoration: _inputDecoration('Mô tả', Icons.description),
+                      style: TextStyle(color: textColor),
+                      decoration: _inputDecoration(settings.strings.translate('description'), Icons.description, fillColor: inputFillColor, labelColor: hintColor),
                     ),
                     const SizedBox(height: 12),
 
                     TextField(
                       controller: noteController,
                       maxLines: 2,
+                      style: TextStyle(color: textColor),
                       decoration: _inputDecoration(
-                          'Ghi chú (Note)', Icons.note_alt,
-                          fillColor: AppColors.scaffoldBg.withOpacity(0.5)),
+                          settings.strings.translate('note_hint'), Icons.note_alt,
+                          fillColor: inputFillColor, labelColor: hintColor),
                     ),
                     const SizedBox(height: 20),
 
@@ -467,7 +486,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         onPressed: () async {
                           if (titleController.text.isEmpty) return;
 
-                          if (selectedType == 'Custom' &&
+                          if (selectedType == settings.strings.translate('custom') &&
                               customTypeInput != null &&
                               customTypeInput!.isNotEmpty) {
                             selectedTags.add(customTypeInput!);
@@ -488,8 +507,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           );
                           if (mounted) Navigator.pop(context, true);
                         },
-                        child: const Text('Lưu sự kiện',
-                            style: TextStyle(
+                        child: Text(settings.strings.translate('save_event'),
+                            style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold)),
@@ -649,9 +668,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // --- HELPER WIDGETS ---
   InputDecoration _inputDecoration(String label, IconData icon,
-      {Color? iconColor, Color? fillColor}) {
+      {Color? iconColor, Color? fillColor, Color? labelColor}) {
     return InputDecoration(
       labelText: label,
+      labelStyle: TextStyle(color: labelColor),
       prefixIcon: Icon(icon, color: iconColor ?? Colors.grey),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       filled: true,
@@ -661,11 +681,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   // --- SỬA LỖI UI OVERFLOW: Dùng Flexible thay vì Text thường ---
-  Widget _buildTimeBox(IconData icon, String text) {
+  Widget _buildTimeBox(IconData icon, String text, {Color? textColor, Color? borderColor}) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: borderColor ?? Colors.grey.shade300),
           borderRadius: BorderRadius.circular(12)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -675,7 +695,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Flexible(
             child: Text(
               text,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -843,7 +863,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               const SizedBox(width: 6),
               _buildActionBtn(
                 Icons.add,
-                'Add',
+                settings.strings.translate('add'),
                 isOutlined: false,
                 textColor: Colors.white,
                 onTap: () async {
@@ -918,17 +938,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildViewSwitcher(Color cardColor, Color subTextColor) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
           color: cardColor, borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
-          _buildSwitchTab('Calendar', Icons.calendar_view_month,
+          _buildSwitchTab(settings.strings.translate('calendar'), Icons.calendar_view_month,
               _calendarFormat == CalendarFormat.month, subTextColor, () {
             setState(() => _calendarFormat = CalendarFormat.month);
           }),
-          _buildSwitchTab('Week', Icons.access_time,
+          _buildSwitchTab(settings.strings.translate('week'), Icons.access_time,
               _calendarFormat == CalendarFormat.week, subTextColor, () {
             setState(() => _calendarFormat = CalendarFormat.week);
           }),
@@ -956,10 +977,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               const SizedBox(width: 6),
               Flexible(
                   child: Text(label,
-                      style: TextStyle(
-                          color: isActive ? Colors.white : subTextColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13),
                       overflow: TextOverflow.ellipsis)),
             ],
           ),
@@ -1075,41 +1092,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildLegendChips(Color textColor) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
-          _buildChip('Work', AppColors.work),
-          _buildChip('Class', AppColors.classColor),
-          _buildChip('Deadline', AppColors.deadline),
-          _buildChip('Task', AppColors.task),
-          _buildChip('Today', AppColors.todayChip,
-              textColor: AppColors.textDark),
+          _buildChip(settings.strings.translate('work'), AppColors.work),
+          _buildChip(settings.strings.translate('class'), AppColors.classColor),
+          _buildChip(settings.strings.translate('deadline'), AppColors.deadline),
+          _buildChip(settings.strings.translate('task'), AppColors.task),
+          _buildChip(settings.strings.translate('today'), AppColors.todayChip, textColor: AppColors.textDark),
         ],
       ),
     );
   }
 
-  Widget _buildChip(String label, Color color,
-      {Color textColor = Colors.white}) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration:
-          BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-      child: Text(label,
-          style: TextStyle(
-              color: textColor, fontWeight: FontWeight.bold, fontSize: 12)),
-    );
-  }
-
   Widget _buildModeToggle() {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     return Row(
       children: [
-        _buildModeBtn('Schedule', AppColors.scheduleBlue, true),
+        _buildModeBtn(settings.strings.translate('schedule'), AppColors.scheduleBlue, true),
         const SizedBox(width: 8),
-        _buildModeBtn('Note', AppColors.textLight.withOpacity(0.3), false),
+        _buildModeBtn(settings.strings.translate('note'), AppColors.textLight.withOpacity(0.3), false),
       ],
     );
   }
@@ -1262,6 +1267,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildChip(String label, Color color, {Color textColor = Colors.white}) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+      child: Text(label,
+          style: TextStyle(
+              color: textColor, fontWeight: FontWeight.bold, fontSize: 12)),
     );
   }
 }

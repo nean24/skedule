@@ -206,8 +206,11 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     final settings = Provider.of<SettingsProvider>(context);
-    final isDark = settings.isDarkMode;
-    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
+    final colorScheme = Theme.of(context).colorScheme;
+    final backgroundColor = colorScheme.background;
+    final cardColor = colorScheme.surface;
+    final textColor = colorScheme.onSurface;
+    final subTextColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -215,7 +218,7 @@ class _DashboardPageState extends State<DashboardPage> {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 24.0),
         children: [
-          _buildHeader(),
+          _buildHeader(cardColor, textColor, subTextColor),
           const SizedBox(height: 24),
           _buildStatsGrid(settings),
           const SizedBox(height: 32),
@@ -253,13 +256,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // --- CÁC WIDGET CON ---
 
-  Widget _buildHeader() {
+  Widget _buildHeader(Color cardColor, Color textColor, Color subTextColor) {
     final settings = Provider.of<SettingsProvider>(context);
-    final isDark = settings.isDarkMode;
-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
-    final subTextColor = isDark ? Colors.grey[400] : const Color(0xFF9094A6);
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Row(
@@ -448,10 +446,9 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildSummaryCard(SettingsProvider settings) {
-    final isDark = settings.isDarkMode;
-    final cardColor =
-        isDark ? const Color(0xFF1E1E1E) : const Color(0xFFE2E6EE);
-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+    final colorScheme = Theme.of(context).colorScheme;
+    final cardColor = colorScheme.surface;
+    final textColor = colorScheme.onSurface;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -474,11 +471,11 @@ class _DashboardPageState extends State<DashboardPage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _summaryItem('$_weekCompleted',
-                    settings.strings.translate('completed'), isDark),
+                    settings.strings.translate('completed'), textColor),
                 _summaryItem('$_weekActiveDays',
-                    settings.strings.translate('active'), isDark),
+                    settings.strings.translate('active'), textColor),
                 _summaryItem('$_weekUpcoming',
-                    settings.strings.translate('upcoming'), isDark),
+                    settings.strings.translate('upcoming'), textColor),
               ],
             )
           ],
@@ -487,10 +484,8 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _summaryItem(String value, String label, bool isDark) {
-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
-    final labelColor = isDark ? Colors.grey[400] : const Color(0xFF9094A6);
-
+  Widget _summaryItem(String value, String label, Color textColor) {
+    final labelColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
     return Column(
       children: [
         Text(value,
@@ -504,10 +499,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildSectionHeader({required String title, int? count}) {
-    final settings = Provider.of<SettingsProvider>(context);
-    final isDark = settings.isDarkMode;
-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
-
+    final textColor = Theme.of(context).colorScheme.onSurface;
     return Row(
       children: [
         Text(title,

@@ -146,17 +146,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        backgroundColor: colorScheme.background,
         title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               _isPremium
                   ? (_planName ?? settings.strings.translate('premium'))
                   : settings.strings.translate('upgrade_premium'),
-              style: const TextStyle(color: Colors.black),
+              style: textTheme.titleLarge?.copyWith(
+                  color: colorScheme.onBackground, fontWeight: FontWeight.bold),
             ),
             if (_isPremium) ...[
               const SizedBox(width: 8),
@@ -164,9 +168,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ],
           ],
         ),
-        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -175,80 +178,63 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 10),
-                  Text(
-                    settings.strings.translate('unlock_full_potential'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4A6C8B),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    settings.strings.translate('get_access_exclusive'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 30),
-                  _buildFeatureItem(Icons.check_circle,
-                      settings.strings.translate('full_ai_integration')),
-                  _buildFeatureItem(
-                      Icons.check_circle, settings.strings.translate('no_ads')),
-                  _buildFeatureItem(Icons.check_circle,
-                      settings.strings.translate('advanced_scheduling')),
-                  _buildFeatureItem(Icons.check_circle,
-                      settings.strings.translate('unlimited_tasks')),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
                   Text(
                     settings.strings.translate('choose_plan'),
-                    style: const TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                    style: textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onBackground),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 30),
                   _buildPlanCard(
+                    context,
                     title: settings.strings.translate('monthly'),
                     price: '50,000 VND',
                     duration:
                         '/${settings.strings.translate('monthly').toLowerCase()}',
                     amount: 50000,
-                    description: 'Skedule VIP - 1 Month',
-                    color: Colors.blue.shade50,
-                    textColor: Colors.blue.shade900,
+                    description: '${settings.strings.translate('app_name')} VIP - 1 ${settings.strings.translate('monthly')}',
                     selectText: settings.strings.translate('select'),
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
                   ),
                   const SizedBox(height: 16),
                   _buildPlanCard(
+                    context,
                     title: settings.strings.translate('six_months'),
                     price: '270,000 VND',
                     duration:
-                        '/6 ${settings.strings.translate('monthly').toLowerCase().replaceAll('monthly', 'months')}', // Approximate
+                        '/6 ${settings.strings.translate('monthly').toLowerCase().replaceAll(settings.strings.translate('monthly').toLowerCase(), settings.strings.translate('six_months').toLowerCase())}',
                     amount: 270000,
-                    description: 'Skedule VIP - 6 Months',
+                    description: '${settings.strings.translate('app_name')} VIP - 6 ${settings.strings.translate('monthly')}',
                     isPopular: true,
                     saveText: settings.strings.translate('save_10'),
                     selectText: settings.strings.translate('select'),
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
                   ),
                   const SizedBox(height: 16),
                   _buildPlanCard(
+                    context,
                     title: settings.strings.translate('yearly'),
                     price: '500,000 VND',
                     duration:
                         '/${settings.strings.translate('yearly').toLowerCase()}',
                     amount: 500000,
-                    description: 'Skedule VIP - 1 Year',
-                    color: Colors.amber.shade50,
-                    textColor: Colors.amber.shade900,
-                    borderColor: Colors.amber,
+                    description: '${settings.strings.translate('app_name')} VIP - 1 ${settings.strings.translate('yearly')}',
+                    isBestValue: true,
                     saveText: settings.strings.translate('best_value'),
                     selectText: settings.strings.translate('select'),
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
                   ),
                   const SizedBox(height: 30),
                   Text(
                     settings.strings.translate('recurring_billing'),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onBackground.withOpacity(0.6)),
                   ),
                 ],
               ),
@@ -256,37 +242,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildFeatureItem(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFF4A6C8B), size: 24),
-          const SizedBox(width: 12),
-          Text(text, style: const TextStyle(fontSize: 16)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanCard({
+  Widget _buildPlanCard(
+    BuildContext context, {
     required String title,
     required String price,
     required String duration,
     required int amount,
     required String description,
     required String selectText,
+    required ColorScheme colorScheme,
+    required TextTheme textTheme,
     bool isPopular = false,
+    bool isBestValue = false,
     String? saveText,
-    Color? color,
-    Color? textColor,
-    Color? borderColor,
   }) {
-    final cardColor = color ?? Colors.white;
-    final textCol = textColor ?? Colors.black;
-    final borderCol = borderColor ??
-        (isPopular ? const Color(0xFF4A6C8B) : Colors.grey.shade300);
-    final borderWidth = isPopular || borderColor != null ? 2.0 : 1.0;
+    Color cardBg = colorScheme.surface;
+    Color borderColor = colorScheme.outlineVariant;
+    double borderWidth = 1.0;
+
+    if (isPopular) {
+      borderColor = colorScheme.primary;
+      borderWidth = 2.0;
+      cardBg = colorScheme.primary.withOpacity(0.08);
+    } else if (isBestValue) {
+      borderColor = Colors.amber;
+      borderWidth = 2.0;
+      cardBg = Colors.amber.withOpacity(0.08);
+    }
 
     return GestureDetector(
       onTap: () => _initiatePayment(amount, description),
@@ -295,12 +277,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: cardColor,
+              color: cardBg,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: borderCol, width: borderWidth),
+              border: Border.all(color: borderColor, width: borderWidth),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: colorScheme.shadow.withOpacity(0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -314,25 +296,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title,
-                          style: TextStyle(
-                              fontSize: 18,
+                          style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: textCol)),
+                              color: colorScheme.onSurface)),
                       const SizedBox(height: 4),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(price,
-                              style: TextStyle(
-                                  fontSize: 22,
+                              style: textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.w800,
-                                  color: textCol)),
+                                  color: isBestValue
+                                      ? Colors.amber[700]
+                                      : (isPopular ? colorScheme.primary : colorScheme.onSurface))),
                           const SizedBox(width: 4),
                           Text(duration,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  color: textCol.withOpacity(0.7))),
+                              style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurface.withOpacity(0.7))),
                         ],
                       ),
                     ],
@@ -341,19 +322,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ElevatedButton(
                   onPressed: () => _initiatePayment(amount, description),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isPopular ? const Color(0xFF4A6C8B) : Colors.white,
-                    foregroundColor:
-                        isPopular ? Colors.white : const Color(0xFF4A6C8B),
-                    side: isPopular
+                    backgroundColor: isPopular
+                        ? colorScheme.primary
+                        : (isBestValue ? Colors.amber : colorScheme.surface),
+                    foregroundColor: (isPopular || isBestValue)
+                        ? Colors.white
+                        : colorScheme.primary,
+                    side: (isPopular || isBestValue)
                         ? null
-                        : const BorderSide(color: Color(0xFF4A6C8B)),
+                        : BorderSide(color: colorScheme.primary),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20)),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 12),
+                    elevation: 0,
                   ),
-                  child: Text(selectText),
+                  child: Text(selectText,
+                      style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -366,11 +352,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.amber,
+                  color: isBestValue ? Colors.amber : colorScheme.primary,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: colorScheme.shadow.withOpacity(0.1),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -378,8 +364,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 child: Text(
                   saveText,
-                  style: const TextStyle(
-                    color: Colors.black,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),

@@ -5,22 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
 
 // --- BẢNG MÀU ĐỒNG BỘ (Copy từ CalendarScreen để đảm bảo consistency) ---
-class AppColors {
-  static const Color scaffoldBg = Color(0xFFDDE3ED);
-  static const Color cardBg = Colors.white;
-  static const Color primaryBlue = Color(0xFF455A75);
-  static const Color textDark = Color(0xFF2D3142);
-  static const Color textLight = Color(0xFF9094A6);
-  static const Color work = Color(0xFFFF8A00);
-  static const Color classColor = Color(0xFFA155FF);
-  static const Color task = Color(0xFF00C566);
-
-  // Dark Mode
-  static const Color scaffoldBgDark = Color(0xFF121212);
-  static const Color cardBgDark = Color(0xFF1E1E1E);
-  static const Color textDarkDark = Color(0xFFE0E0E0);
-  static const Color textLightDark = Color(0xFFA0A0A0);
-}
+// (Nên xóa class AppColors này nếu đã dùng app_theme.dart toàn app)
 
 class EventDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -104,16 +89,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    final isDark = settings.isDarkMode;
-
-    // --- MÀU SẮC THEO THEME ---
-    final bgColor = isDark ? AppColors.scaffoldBgDark : AppColors.scaffoldBg;
-    final cardColor = isDark ? AppColors.cardBgDark : AppColors.cardBg;
-    final textColor = isDark ? AppColors.textDarkDark : AppColors.textDark;
-    final subTextColor = isDark ? AppColors.textLightDark : AppColors.textLight;
+    final colorScheme = Theme.of(context).colorScheme;
+    final bgColor = colorScheme.background;
+    final cardColor = colorScheme.surface;
+    final textColor = colorScheme.onSurface;
+    final subTextColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
 
     // Màu nhấn dựa trên loại
-    final accentColor = widget.isTask ? AppColors.task : AppColors.classColor;
+    final accentColor = widget.isTask ? colorScheme.primary : colorScheme.secondary;
 
     // Format thời gian
     final rawTime =
@@ -206,7 +189,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                          color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.05),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -295,10 +278,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     onPressed: _toggleComplete,
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                          _isCompleted ? AppColors.primaryBlue : accentColor,
+                          _isCompleted ? colorScheme.primary : accentColor,
                       elevation: 5,
                       shadowColor:
-                          (_isCompleted ? AppColors.primaryBlue : accentColor)
+                          (_isCompleted ? colorScheme.primary : accentColor)
                               .withOpacity(0.4),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20)),

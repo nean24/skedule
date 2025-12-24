@@ -94,9 +94,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = colorScheme.onSurface;
+    final cardColor = colorScheme.surface;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(settings.strings.translate('edit_profile')),
+        title: Text(settings.strings.translate('edit_profile'), style: TextStyle(color: textColor)),
+        backgroundColor: cardColor,
+        iconTheme: IconThemeData(color: textColor),
+        elevation: 0,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -104,9 +111,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             TextField(
               controller: _nameController,
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 labelText: settings.strings.translate('display_name'),
                 border: const OutlineInputBorder(),
+                labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
+                filled: true,
+                fillColor: cardColor,
               ),
             ),
             const SizedBox(height: 24),
@@ -116,7 +127,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 onPressed: _isLoading ? null : _updateProfile,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFF4A6C8B),
+                  backgroundColor: colorScheme.primary,
                   foregroundColor: Colors.white,
                 ),
                 child: _isLoading
