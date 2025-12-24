@@ -7,7 +7,7 @@ import 'package:skedule/home/screens/ai_agent_screen.dart';
 import 'package:skedule/home/screens/dashboard_page.dart';
 import 'package:skedule/home/screens/preferences_screen.dart';
 import 'package:skedule/home/screens/note_screen.dart';
-import 'package:skedule/features/payment/payment_screen.dart';
+import 'package:skedule/home/screens/payment_screen.dart';
 import 'package:skedule/features/payment/subscription_service.dart';
 
 class HomeScreen extends StatefulWidget {

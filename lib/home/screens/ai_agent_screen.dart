@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
 import 'package:skedule/features/payment/subscription_service.dart';
-import 'package:skedule/features/payment/payment_screen.dart';
+import 'package:skedule/home/screens/payment_screen.dart';
 
 class ChatMessage {
   final String text;
