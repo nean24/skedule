@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:draggable_fab/draggable_fab.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+// Nhớ import file widget này
+import 'package:skedule/widgets/ai_chat_bubble.dart';
 import 'package:skedule/home/screens/calendar_screen.dart';
-import 'package:skedule/home/screens/ai_agent_screen.dart'; // <<< GIỮ NGUYÊN IMPORT NÀY
+import 'package:skedule/home/screens/ai_agent_screen.dart';
 import 'package:skedule/home/screens/dashboard_page.dart';
 import 'package:skedule/home/screens/preferences_screen.dart';
 import 'package:skedule/home/screens/note_screen.dart';
-import 'package:skedule/features/payment/payment_screen.dart';
+import 'package:skedule/home/screens/payment_screen.dart';
 import 'package:skedule/features/payment/subscription_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -18,21 +20,52 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _isPremium = false;
+  String _userName = 'Bạn'; // Tên mặc định
+
   final SubscriptionService _subscriptionService = SubscriptionService();
+  final _supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    _checkSubscriptionStatus();
+    _checkUserData();
   }
 
-  Future<void> _checkSubscriptionStatus() async {
-    final isPremium = await _subscriptionService.isPremium();
-    if (mounted) {
-      setState(() {
-        _isPremium = isPremium;
-      });
+  // Lấy cả tên và trạng thái Premium
+  Future<void> _checkUserData() async {
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      // 1. Lấy Premium
+      final isPremium = await _subscriptionService.isPremium();
+
+      // 2. Lấy Tên
+      final profileRes = await _supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      String rawName = profileRes?['name'] ?? 'Bạn';
+
+      if (mounted) {
+        setState(() {
+          _isPremium = isPremium;
+          _userName = _processName(rawName);
+        });
+      }
     }
+  }
+
+  // Hàm xử lý tên: Nếu dài > 12 ký tự thì chỉ lấy tên (từ cuối cùng)
+  String _processName(String fullName) {
+    if (fullName.trim().isEmpty) return 'Bạn';
+    if (fullName.length > 12) {
+      final parts = fullName.trim().split(' ');
+      if (parts.isNotEmpty) {
+        return parts.last; // Lấy từ cuối cùng (Tên)
+      }
+    }
+    return fullName; // Tên ngắn thì giữ nguyên
   }
 
   static final List<Widget> _mainPages = <Widget>[
@@ -58,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const PaymentScreen()),
-    );
+    ).then((_) => _checkUserData()); // Check lại khi quay về (เผื่อ mua xong)
   }
 
   void _onNavItemTapped(int index) {
@@ -73,103 +106,83 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Skedule'),
+        backgroundColor: colorScheme.background,
+        elevation: 0,
+        title: Text(
+          'Xin chào, $_userName',
+          style: textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold, color: colorScheme.onBackground),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.workspace_premium),
-            onPressed: _navigateToPayment,
-            tooltip: 'Upgrade to Premium',
-          ),
+          if (!_isPremium)
+            IconButton(
+              icon: Icon(Icons.workspace_premium, color: colorScheme.secondary),
+              onPressed: _navigateToPayment,
+              tooltip: 'Nâng cấp Premium',
+            ),
         ],
       ),
       body: IndexedStack(
         index: _selectedIndex,
         children: _mainPages,
       ),
-
-      // --- SỬA NÚT AI Ở ĐÂY ---
-      floatingActionButton: DraggableFab(
-        child: Container(
-          height: 70.0, // Làm nút to hơn một chút cho nổi bật
-          width: 70.0,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            // Thêm gradient để nút AI trông hiện đại hơn
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF4A6C8B), // Màu chính
-                Color(0xFF2C4E6D), // Màu đậm hơn chút
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4A6C8B).withOpacity(0.4),
-                spreadRadius: 2,
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: FloatingActionButton(
-            // Để transparent để thấy màu gradient của Container
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            onPressed: () {
-              // Chuyển hướng sang màn hình AI Agent
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AiAgentScreen()),
-              );
-            },
-            shape: const CircleBorder(),
-            // Dùng ảnh từ assets
-            child: Padding(
-              padding: const EdgeInsets.all(12.0), // Căn chỉnh ảnh cho vừa vặn
-              child: Image.asset(
-                'assets/ai_robot.png', // Đảm bảo bạn đã khai báo trong pubspec.yaml
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
+      floatingActionButton: SizedBox(
+        width: 70,
+        height: 70,
+        child: FloatingActionButton(
+          backgroundColor: colorScheme.primary,
+          elevation: 4,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AiAgentScreen()),
+            );
+          },
+          shape: const CircleBorder(),
+          child: const AiChatBubble(),
         ),
       ),
-      // ------------------------
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
+        color: colorScheme.surface,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             _buildNavItem(
-                icon: Icons.dashboard_rounded, label: 'Dashboard', index: 0),
+                icon: Icons.dashboard_rounded, label: 'Dashboard', index: 0, colorScheme: colorScheme),
             _buildNavItem(
                 icon: Icons.calendar_month_rounded,
                 label: 'Calendar',
-                index: 1),
-            const SizedBox(width: 48), // Khoảng trống cho FAB chính
+                index: 1,
+                colorScheme: colorScheme),
+            const SizedBox(width: 48),
             _buildNavItem(
-                icon: Icons.note_alt_rounded, label: 'Notes', index: 2),
+                icon: Icons.note_alt_rounded, label: 'Notes', index: 2, colorScheme: colorScheme),
             _buildNavItem(
-                icon: Icons.settings_rounded, label: 'Preferences', index: 3),
+                icon: Icons.settings_rounded, label: 'Preferences', index: 3, colorScheme: colorScheme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(
-      {required IconData icon, required String label, required int index}) {
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+    required ColorScheme colorScheme,
+  }) {
     final isSelected = _selectedIndex == index && index != 3;
     return IconButton(
       icon: Icon(
         icon,
-        color: isSelected ? const Color(0xFF4A6C8B) : Colors.grey.shade400,
+        color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.5),
         size: 28,
       ),
       onPressed: () => _onNavItemTapped(index),
