@@ -1,0 +1,2108 @@
+diff --git a/README_EDGE_FUNCTION.md b/README_EDGE_FUNCTION.md
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/lib/home/screens/ai_agent_screen.dart b/lib/home/screens/ai_agent_screen.dart
+index 4cc4b22..94d4f5b 100644
+--- a/lib/home/screens/ai_agent_screen.dart
++++ b/lib/home/screens/ai_agent_screen.dart
+@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
+ import 'package:flutter_dotenv/flutter_dotenv.dart';
+ import 'package:skedule/features/settings/settings_provider.dart';
+ import 'package:skedule/features/payment/subscription_service.dart';
+-import 'package:skedule/features/payment/payment_screen.dart';
++import 'package:skedule/home/screens/payment_screen.dart';
+ 
+ class ChatMessage {
+   final String text;
+@@ -290,12 +290,10 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
+   @override
+   Widget build(BuildContext context) {
+     final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-    final backgroundColor =
+-        isDark ? const Color(0xFF121212) : const Color(0xFFDDE3ED);
+-    final textColor =
+-        isDark ? const Color(0xFFE0E0E0) : const Color(0xFF2D3142);
+-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
++    final colorScheme = Theme.of(context).colorScheme;
++    final backgroundColor = colorScheme.background;
++    final textColor = colorScheme.onSurface;
++    final cardColor = colorScheme.surface;
+ 
+     return Scaffold(
+       backgroundColor: backgroundColor,
+@@ -350,8 +348,8 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
+                         vertical: 12.0, horizontal: 16.0),
+                     decoration: BoxDecoration(
+                       color: message.isUser
+-                          ? Colors.blue[600]
+-                          : (isDark ? const Color(0xFF2C2C2C) : Colors.white),
++                          ? colorScheme.primary
++                          : cardColor,
+                       borderRadius: BorderRadius.circular(20.0),
+                       boxShadow: [
+                         BoxShadow(
+@@ -364,7 +362,7 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
+                       style: TextStyle(
+                           color: message.isUser
+                               ? Colors.white
+-                              : (isDark ? Colors.white : Colors.black87)),
++                              : textColor),
+                     ),
+                   ),
+                 );
+@@ -434,7 +432,7 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
+                           ? Colors.grey
+                           : (_isRecording
+                               ? Colors.redAccent
+-                              : Theme.of(context).primaryColor),
++                              : colorScheme.primary),
+                       iconSize: 24,
+                     ),
+                   ),
+@@ -445,11 +443,11 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
+                             height: 24,
+                             child: CircularProgressIndicator(
+                                 strokeWidth: 2.0,
+-                                color: Theme.of(context).primaryColor))
++                                color: colorScheme.primary))
+                         : const Icon(Icons.send),
+                     color: !_isPremium
+                         ? Colors.grey
+-                        : Theme.of(context).primaryColor,
++                        : colorScheme.primary,
+                     onPressed: _isLoading
+                         ? null
+                         : () => _sendMessage(text: _textController.text),
+diff --git a/lib/home/screens/calendar_screen.dart b/lib/home/screens/calendar_screen.dart
+index 340e8a4..ff9101a 100644
+--- a/lib/home/screens/calendar_screen.dart
++++ b/lib/home/screens/calendar_screen.dart
+@@ -102,6 +102,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+   // ===========================================================================
+   Future<void> _showAddEventSheet(BuildContext context,
+       {String? preTitle, String? preType, String? preDesc}) async {
++    final settings = Provider.of<SettingsProvider>(context, listen: false);
+     final titleController = TextEditingController(text: preTitle ?? '');
+     final descController = TextEditingController(text: preDesc ?? '');
+     final noteController = TextEditingController();
+@@ -113,7 +114,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+     TimeOfDay endTime =
+         TimeOfDay.now().replacing(hour: TimeOfDay.now().hour + 1);
+ 
+-    String selectedType = preType ?? 'Task';
++    String selectedType = preType ?? settings.strings.translate('task');
+     String selectedPriority = 'medium';
+     List<String> selectedTags = [];
+     List<String> checklistItems = [];
+@@ -121,11 +122,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
+     String? customTypeInput;
+ 
+     final List<String> eventTypes = [
+-      'Task',
+-      'Schedule',
+-      'Workshift',
+-      'Deadline',
+-      'Custom'
++      settings.strings.translate('task'),
++      settings.strings.translate('schedule'),
++      settings.strings.translate('workshift'),
++      settings.strings.translate('deadline'),
++      settings.strings.translate('custom'),
+     ];
+     final List<String> priorities = ['low', 'medium', 'high'];
+ 
+@@ -137,14 +138,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
+         return StatefulBuilder(
+           builder: (context, setModalState) {
+             bool showTaskFields =
+-                ['Task', 'Deadline', 'Custom'].contains(selectedType);
+-            bool showTagInput = selectedType == 'Custom';
++                [settings.strings.translate('task'), settings.strings.translate('deadline'), settings.strings.translate('custom')].contains(selectedType);
++            bool showTagInput = selectedType == settings.strings.translate('custom');
++
++            // Lấy theme hiện tại
++            final colorScheme = Theme.of(context).colorScheme;
++            final bgColor = colorScheme.surface;
++            final textColor = colorScheme.onSurface;
++            final inputFillColor = Theme.of(context).inputDecorationTheme.fillColor ?? Colors.grey[50];
++            final hintColor = Theme.of(context).inputDecorationTheme.labelStyle?.color ?? Colors.grey[600];
+ 
+             return Container(
+               height: MediaQuery.of(context).size.height * 0.9,
+-              decoration: const BoxDecoration(
+-                color: Colors.white,
+-                borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
++              decoration: BoxDecoration(
++                color: bgColor,
++                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+               ),
+               padding: EdgeInsets.fromLTRB(
+                   20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+@@ -164,11 +172,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     Row(
+                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                       children: [
+-                        const Text('Thêm sự kiện mới',
++                        Text(settings.strings.translate('add_event'),
+                             style: TextStyle(
+                                 fontSize: 20,
+                                 fontWeight: FontWeight.bold,
+-                                color: AppColors.textDark)),
++                                color: textColor)),
+                         Icon(_getIconForType(selectedType),
+                             color: AppColors.primaryBlue, size: 28),
+                       ],
+@@ -179,12 +187,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     DropdownButtonFormField<String>(
+                       value: eventTypes.contains(selectedType)
+                           ? selectedType
+-                          : 'Task',
++                          : settings.strings.translate('task'),
++                      dropdownColor: bgColor,
++                      style: TextStyle(color: textColor),
+                       decoration:
+-                          _inputDecoration('Loại sự kiện', Icons.category),
++                          _inputDecoration(settings.strings.translate('event_type'), Icons.category, fillColor: inputFillColor, labelColor: hintColor),
+                       items: eventTypes
+                           .map(
+-                              (t) => DropdownMenuItem(value: t, child: Text(t)))
++                              (t) => DropdownMenuItem(value: t, child: Text(t, style: TextStyle(color: textColor))))
+                           .toList(),
+                       onChanged: (val) =>
+                           setModalState(() => selectedType = val!),
+@@ -194,8 +204,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     // Custom Type Input
+                     if (showTagInput) ...[
+                       TextField(
++                        style: TextStyle(color: textColor),
+                         decoration: _inputDecoration(
+-                            'Tên loại tùy chỉnh (VD: Gym)', Icons.edit),
++                            settings.strings.translate('custom_type_name'), Icons.edit, fillColor: inputFillColor, labelColor: hintColor),
+                         onChanged: (val) => customTypeInput = val,
+                       ),
+                       const SizedBox(height: 12),
+@@ -204,7 +215,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     // 2. Tiêu đề
+                     TextField(
+                       controller: titleController,
+-                      decoration: _inputDecoration('Tiêu đề', Icons.title),
++                      style: TextStyle(color: textColor),
++                      decoration: _inputDecoration(settings.strings.translate('title'), Icons.title, fillColor: inputFillColor, labelColor: hintColor),
+                     ),
+                     const SizedBox(height: 12),
+ 
+@@ -222,9 +234,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                               if (picked != null)
+                                 setModalState(() => selectedDate = picked);
+                             },
+-                            // FIX UI OVERFLOW: Sử dụng hàm _buildTimeBox mới
+                             child: _buildTimeBox(Icons.calendar_today,
+-                                DateFormat('dd/MM/yyyy').format(selectedDate)),
++                                DateFormat('dd/MM/yyyy').format(selectedDate), textColor: textColor, borderColor: colorScheme.outline),
+                           ),
+                         ),
+                         const SizedBox(width: 10),
+@@ -237,7 +248,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                                 setModalState(() => startTime = time);
+                             },
+                             child: _buildTimeBox(
+-                                Icons.access_time, startTime.format(context)),
++                                Icons.access_time, startTime.format(context), textColor: textColor, borderColor: colorScheme.outline),
+                           ),
+                         ),
+                         const SizedBox(width: 10),
+@@ -250,7 +261,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                                 setModalState(() => endTime = time);
+                             },
+                             child: _buildTimeBox(Icons.access_time_filled,
+-                                endTime.format(context)),
++                                endTime.format(context), textColor: textColor, borderColor: colorScheme.outline),
+                           ),
+                         ),
+                       ],
+@@ -261,17 +272,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     if (showTaskFields) ...[
+                       DropdownButtonFormField<int>(
+                         value: reminderTime == null ? 0 : 1,
++                        dropdownColor: bgColor,
++                        style: TextStyle(color: textColor),
+                         decoration: _inputDecoration(
+-                            'Nhắc nhở', Icons.notifications,
+-                            iconColor: Colors.purple),
+-                        items: const [
+-                          DropdownMenuItem(value: 0, child: Text('Không nhắc')),
++                            settings.strings.translate('reminder'), Icons.notifications,
++                            iconColor: Colors.purple, fillColor: inputFillColor, labelColor: hintColor),
++                        items: [
++                          DropdownMenuItem(value: 0, child: Text(settings.strings.translate('no_reminder'), style: TextStyle(color: textColor))),
+                           DropdownMenuItem(
+-                              value: 15, child: Text('Trước 15 phút')),
++                              value: 15, child: Text(settings.strings.translate('reminder_15min'), style: TextStyle(color: textColor))),
+                           DropdownMenuItem(
+-                              value: 60, child: Text('Trước 1 giờ')),
++                              value: 60, child: Text(settings.strings.translate('reminder_1hour'), style: TextStyle(color: textColor))),
+                           DropdownMenuItem(
+-                              value: 1, child: Text('Chọn giờ cụ thể...')),
++                              value: 1, child: Text(settings.strings.translate('reminder_custom_time'), style: TextStyle(color: textColor))),
+                         ],
+                         onChanged: (val) async {
+                           if (val == 0) {
+@@ -284,8 +297,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                                 lastDate: DateTime(2030));
+                             if (pickedDate != null) {
+                               final pickedTime = await showTimePicker(
+-                                  context: context,
+-                                  initialTime: TimeOfDay.now());
++                                  context: context, initialTime: TimeOfDay.now());
+                               if (pickedTime != null) {
+                                 setModalState(() {
+                                   reminderTime = DateTime(
+@@ -313,7 +325,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                         Padding(
+                           padding: const EdgeInsets.only(top: 8, left: 12),
+                           child: Text(
+-                            "⏰ Sẽ nhắc lúc: ${DateFormat('dd/MM HH:mm').format(reminderTime!)}",
++                            "⏰ ${settings.strings.translate('reminder')}: ${DateFormat('dd/MM HH:mm').format(reminderTime!)}",
+                             style: const TextStyle(
+                                 color: Colors.purple,
+                                 fontWeight: FontWeight.bold),
+@@ -326,11 +338,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     if (showTaskFields) ...[
+                       DropdownButtonFormField<String>(
+                         value: selectedPriority,
+-                        decoration: _inputDecoration('Độ ưu tiên', Icons.flag,
+-                            iconColor: Colors.orange),
++                        dropdownColor: bgColor,
++                        style: TextStyle(color: textColor),
++                        decoration: _inputDecoration(settings.strings.translate('priority'), Icons.flag,
++                            iconColor: Colors.orange, fillColor: inputFillColor, labelColor: hintColor),
+                         items: priorities
+                             .map((p) => DropdownMenuItem(
+-                                value: p, child: Text(p.toUpperCase())))
++                                value: p, child: Text(p.toUpperCase(), style: TextStyle(color: textColor))))
+                             .toList(),
+                         onChanged: (val) =>
+                             setModalState(() => selectedPriority = val!),
+@@ -342,8 +356,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     if (showTaskFields) ...[
+                       TextField(
+                         controller: tagController,
++                        style: TextStyle(color: textColor),
+                         decoration: _inputDecoration(
+-                                'Nhập Tag (Rồi bấm +)', Icons.label)
++                                settings.strings.translate('enter_tag'), Icons.label, fillColor: inputFillColor, labelColor: hintColor)
+                             .copyWith(
+                           suffixIcon: IconButton(
+                             icon: const Icon(Icons.add_circle,
+@@ -374,11 +389,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                             spacing: 8,
+                             children: selectedTags
+                                 .map((t) => Chip(
+-                                      label: Text(t),
++                                      label: Text(t, style: TextStyle(color: textColor)),
+                                       backgroundColor:
+                                           AppColors.accentBlue.withOpacity(0.2),
+                                       onDeleted: () => setModalState(
+                                           () => selectedTags.remove(t)),
++                                      deleteIconColor: textColor,
+                                     ))
+                                 .toList(),
+                           ),
+@@ -389,15 +405,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     // 7. Checklist
+                     if (showTaskFields) ...[
+                       const Divider(),
+-                      const Text('Checklist',
++                      Text(settings.strings.translate('checklist'),
+                           style: TextStyle(
+-                              fontWeight: FontWeight.bold, color: Colors.grey)),
++                              fontWeight: FontWeight.bold, color: hintColor)),
+                       ...checklistItems.asMap().entries.map((entry) => ListTile(
+                             dense: true,
+                             contentPadding: EdgeInsets.zero,
+-                            leading: const Icon(Icons.check_box_outline_blank,
+-                                size: 20),
+-                            title: Text(entry.value),
++                            leading: Icon(Icons.check_box_outline_blank,
++                                size: 20, color: hintColor),
++                            title: Text(entry.value, style: TextStyle(color: textColor)),
+                             trailing: IconButton(
+                               icon: const Icon(Icons.close,
+                                   color: Colors.red, size: 20),
+@@ -407,8 +423,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                           )),
+                       TextField(
+                         controller: checklistController,
++                        style: TextStyle(color: textColor),
+                         decoration: _inputDecoration(
+-                                'Thêm việc nhỏ...', Icons.playlist_add)
++                                settings.strings.translate('add_checklist_item'), Icons.playlist_add, fillColor: inputFillColor, labelColor: hintColor)
+                             .copyWith(
+                           suffixIcon: IconButton(
+                             icon: const Icon(Icons.add,
+@@ -441,16 +458,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                     TextField(
+                       controller: descController,
+                       maxLines: 2,
+-                      decoration: _inputDecoration('Mô tả', Icons.description),
++                      style: TextStyle(color: textColor),
++                      decoration: _inputDecoration(settings.strings.translate('description'), Icons.description, fillColor: inputFillColor, labelColor: hintColor),
+                     ),
+                     const SizedBox(height: 12),
+ 
+                     TextField(
+                       controller: noteController,
+                       maxLines: 2,
++                      style: TextStyle(color: textColor),
+                       decoration: _inputDecoration(
+-                          'Ghi chú (Note)', Icons.note_alt,
+-                          fillColor: AppColors.scaffoldBg.withOpacity(0.5)),
++                          settings.strings.translate('note_hint'), Icons.note_alt,
++                          fillColor: inputFillColor, labelColor: hintColor),
+                     ),
+                     const SizedBox(height: 20),
+ 
+@@ -467,7 +486,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                         onPressed: () async {
+                           if (titleController.text.isEmpty) return;
+ 
+-                          if (selectedType == 'Custom' &&
++                          if (selectedType == settings.strings.translate('custom') &&
+                               customTypeInput != null &&
+                               customTypeInput!.isNotEmpty) {
+                             selectedTags.add(customTypeInput!);
+@@ -488,8 +507,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
+                           );
+                           if (mounted) Navigator.pop(context, true);
+                         },
+-                        child: const Text('Lưu sự kiện',
+-                            style: TextStyle(
++                        child: Text(settings.strings.translate('save_event'),
++                            style: const TextStyle(
+                                 color: Colors.white,
+                                 fontSize: 16,
+                                 fontWeight: FontWeight.bold)),
+@@ -649,9 +668,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
+ 
+   // --- HELPER WIDGETS ---
+   InputDecoration _inputDecoration(String label, IconData icon,
+-      {Color? iconColor, Color? fillColor}) {
++      {Color? iconColor, Color? fillColor, Color? labelColor}) {
+     return InputDecoration(
+       labelText: label,
++      labelStyle: TextStyle(color: labelColor),
+       prefixIcon: Icon(icon, color: iconColor ?? Colors.grey),
+       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+       filled: true,
+@@ -661,11 +681,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
+   }
+ 
+   // --- SỬA LỖI UI OVERFLOW: Dùng Flexible thay vì Text thường ---
+-  Widget _buildTimeBox(IconData icon, String text) {
++  Widget _buildTimeBox(IconData icon, String text, {Color? textColor, Color? borderColor}) {
+     return Container(
+       padding: const EdgeInsets.all(12),
+       decoration: BoxDecoration(
+-          border: Border.all(color: Colors.grey.shade300),
++          border: Border.all(color: borderColor ?? Colors.grey.shade300),
+           borderRadius: BorderRadius.circular(12)),
+       child: Row(
+         mainAxisAlignment: MainAxisAlignment.center,
+@@ -675,7 +695,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+           Flexible(
+             child: Text(
+               text,
+-              style: const TextStyle(fontWeight: FontWeight.bold),
++              style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+               overflow: TextOverflow.ellipsis,
+             ),
+           ),
+@@ -843,7 +863,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
+               const SizedBox(width: 6),
+               _buildActionBtn(
+                 Icons.add,
+-                'Add',
++                settings.strings.translate('add'),
+                 isOutlined: false,
+                 textColor: Colors.white,
+                 onTap: () async {
+@@ -918,17 +938,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
+   }
+ 
+   Widget _buildViewSwitcher(Color cardColor, Color subTextColor) {
++    final settings = Provider.of<SettingsProvider>(context, listen: false);
+     return Container(
+       padding: const EdgeInsets.all(4),
+       decoration: BoxDecoration(
+           color: cardColor, borderRadius: BorderRadius.circular(12)),
+       child: Row(
+         children: [
+-          _buildSwitchTab('Calendar', Icons.calendar_view_month,
++          _buildSwitchTab(settings.strings.translate('calendar'), Icons.calendar_view_month,
+               _calendarFormat == CalendarFormat.month, subTextColor, () {
+             setState(() => _calendarFormat = CalendarFormat.month);
+           }),
+-          _buildSwitchTab('Week', Icons.access_time,
++          _buildSwitchTab(settings.strings.translate('week'), Icons.access_time,
+               _calendarFormat == CalendarFormat.week, subTextColor, () {
+             setState(() => _calendarFormat = CalendarFormat.week);
+           }),
+@@ -956,10 +977,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
+               const SizedBox(width: 6),
+               Flexible(
+                   child: Text(label,
+-                      style: TextStyle(
+-                          color: isActive ? Colors.white : subTextColor,
+-                          fontWeight: FontWeight.bold,
+-                          fontSize: 13),
+                       overflow: TextOverflow.ellipsis)),
+             ],
+           ),
+@@ -1075,41 +1092,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
+   }
+ 
+   Widget _buildLegendChips(Color textColor) {
++    final settings = Provider.of<SettingsProvider>(context, listen: false);
+     return SingleChildScrollView(
+       scrollDirection: Axis.horizontal,
+       physics: const BouncingScrollPhysics(),
+       child: Row(
+         children: [
+-          _buildChip('Work', AppColors.work),
+-          _buildChip('Class', AppColors.classColor),
+-          _buildChip('Deadline', AppColors.deadline),
+-          _buildChip('Task', AppColors.task),
+-          _buildChip('Today', AppColors.todayChip,
+-              textColor: AppColors.textDark),
++          _buildChip(settings.strings.translate('work'), AppColors.work),
++          _buildChip(settings.strings.translate('class'), AppColors.classColor),
++          _buildChip(settings.strings.translate('deadline'), AppColors.deadline),
++          _buildChip(settings.strings.translate('task'), AppColors.task),
++          _buildChip(settings.strings.translate('today'), AppColors.todayChip, textColor: AppColors.textDark),
+         ],
+       ),
+     );
+   }
+ 
+-  Widget _buildChip(String label, Color color,
+-      {Color textColor = Colors.white}) {
+-    return Container(
+-      margin: const EdgeInsets.only(right: 6),
+-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+-      decoration:
+-          BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+-      child: Text(label,
+-          style: TextStyle(
+-              color: textColor, fontWeight: FontWeight.bold, fontSize: 12)),
+-    );
+-  }
+-
+   Widget _buildModeToggle() {
++    final settings = Provider.of<SettingsProvider>(context, listen: false);
+     return Row(
+       children: [
+-        _buildModeBtn('Schedule', AppColors.scheduleBlue, true),
++        _buildModeBtn(settings.strings.translate('schedule'), AppColors.scheduleBlue, true),
+         const SizedBox(width: 8),
+-        _buildModeBtn('Note', AppColors.textLight.withOpacity(0.3), false),
++        _buildModeBtn(settings.strings.translate('note'), AppColors.textLight.withOpacity(0.3), false),
+       ],
+     );
+   }
+@@ -1264,4 +1269,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
+       ),
+     );
+   }
++
++  Widget _buildChip(String label, Color color, {Color textColor = Colors.white}) {
++    return Container(
++      margin: const EdgeInsets.only(right: 6),
++      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
++      decoration:
++          BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
++      child: Text(label,
++          style: TextStyle(
++              color: textColor, fontWeight: FontWeight.bold, fontSize: 12)),
++    );
++  }
+ }
+diff --git a/lib/home/screens/dashboard_page.dart b/lib/home/screens/dashboard_page.dart
+index d0e038c..6336898 100644
+--- a/lib/home/screens/dashboard_page.dart
++++ b/lib/home/screens/dashboard_page.dart
+@@ -206,8 +206,11 @@ class _DashboardPageState extends State<DashboardPage> {
+   Widget build(BuildContext context) {
+     if (_isLoading) return const Center(child: CircularProgressIndicator());
+     final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
++    final colorScheme = Theme.of(context).colorScheme;
++    final backgroundColor = colorScheme.background;
++    final cardColor = colorScheme.surface;
++    final textColor = colorScheme.onSurface;
++    final subTextColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
+ 
+     return Scaffold(
+       backgroundColor: backgroundColor,
+@@ -215,7 +218,7 @@ class _DashboardPageState extends State<DashboardPage> {
+         physics: const BouncingScrollPhysics(),
+         padding: const EdgeInsets.symmetric(vertical: 24.0),
+         children: [
+-          _buildHeader(),
++          _buildHeader(cardColor, textColor, subTextColor),
+           const SizedBox(height: 24),
+           _buildStatsGrid(settings),
+           const SizedBox(height: 32),
+@@ -253,13 +256,8 @@ class _DashboardPageState extends State<DashboardPage> {
+ 
+   // --- CÁC WIDGET CON ---
+ 
+-  Widget _buildHeader() {
++  Widget _buildHeader(Color cardColor, Color textColor, Color subTextColor) {
+     final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+-    final subTextColor = isDark ? Colors.grey[400] : const Color(0xFF9094A6);
+-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+-
+     return Padding(
+       padding: const EdgeInsets.symmetric(horizontal: 16.0),
+       child: Row(
+@@ -448,10 +446,9 @@ class _DashboardPageState extends State<DashboardPage> {
+   }
+ 
+   Widget _buildSummaryCard(SettingsProvider settings) {
+-    final isDark = settings.isDarkMode;
+-    final cardColor =
+-        isDark ? const Color(0xFF1E1E1E) : const Color(0xFFE2E6EE);
+-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
++    final colorScheme = Theme.of(context).colorScheme;
++    final cardColor = colorScheme.surface;
++    final textColor = colorScheme.onSurface;
+ 
+     return Padding(
+       padding: const EdgeInsets.symmetric(horizontal: 16),
+@@ -474,11 +471,11 @@ class _DashboardPageState extends State<DashboardPage> {
+               mainAxisAlignment: MainAxisAlignment.spaceAround,
+               children: [
+                 _summaryItem('$_weekCompleted',
+-                    settings.strings.translate('completed'), isDark),
++                    settings.strings.translate('completed'), textColor),
+                 _summaryItem('$_weekActiveDays',
+-                    settings.strings.translate('active'), isDark),
++                    settings.strings.translate('active'), textColor),
+                 _summaryItem('$_weekUpcoming',
+-                    settings.strings.translate('upcoming'), isDark),
++                    settings.strings.translate('upcoming'), textColor),
+               ],
+             )
+           ],
+@@ -487,10 +484,8 @@ class _DashboardPageState extends State<DashboardPage> {
+     );
+   }
+ 
+-  Widget _summaryItem(String value, String label, bool isDark) {
+-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+-    final labelColor = isDark ? Colors.grey[400] : const Color(0xFF9094A6);
+-
++  Widget _summaryItem(String value, String label, Color textColor) {
++    final labelColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
+     return Column(
+       children: [
+         Text(value,
+@@ -504,10 +499,7 @@ class _DashboardPageState extends State<DashboardPage> {
+   }
+ 
+   Widget _buildSectionHeader({required String title, int? count}) {
+-    final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+-
++    final textColor = Theme.of(context).colorScheme.onSurface;
+     return Row(
+       children: [
+         Text(title,
+diff --git a/lib/home/screens/edit_profile_screen.dart b/lib/home/screens/edit_profile_screen.dart
+index a35957c..889914f 100644
+--- a/lib/home/screens/edit_profile_screen.dart
++++ b/lib/home/screens/edit_profile_screen.dart
+@@ -94,9 +94,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
+   @override
+   Widget build(BuildContext context) {
+     final settings = Provider.of<SettingsProvider>(context);
++    final colorScheme = Theme.of(context).colorScheme;
++    final textColor = colorScheme.onSurface;
++    final cardColor = colorScheme.surface;
++
+     return Scaffold(
+       appBar: AppBar(
+-        title: Text(settings.strings.translate('edit_profile')),
++        title: Text(settings.strings.translate('edit_profile'), style: TextStyle(color: textColor)),
++        backgroundColor: cardColor,
++        iconTheme: IconThemeData(color: textColor),
++        elevation: 0,
+       ),
+       body: Padding(
+         padding: const EdgeInsets.all(16.0),
+@@ -104,9 +111,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
+           children: [
+             TextField(
+               controller: _nameController,
++              style: TextStyle(color: textColor),
+               decoration: InputDecoration(
+                 labelText: settings.strings.translate('display_name'),
+                 border: const OutlineInputBorder(),
++                labelStyle: TextStyle(color: textColor.withOpacity(0.7)),
++                filled: true,
++                fillColor: cardColor,
+               ),
+             ),
+             const SizedBox(height: 24),
+@@ -116,7 +127,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
+                 onPressed: _isLoading ? null : _updateProfile,
+                 style: ElevatedButton.styleFrom(
+                   padding: const EdgeInsets.symmetric(vertical: 16),
+-                  backgroundColor: const Color(0xFF4A6C8B),
++                  backgroundColor: colorScheme.primary,
+                   foregroundColor: Colors.white,
+                 ),
+                 child: _isLoading
+diff --git a/lib/home/screens/event_detail_screen.dart b/lib/home/screens/event_detail_screen.dart
+index 64ad430..5753f04 100644
+--- a/lib/home/screens/event_detail_screen.dart
++++ b/lib/home/screens/event_detail_screen.dart
+@@ -5,22 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
+ import 'package:skedule/features/settings/settings_provider.dart';
+ 
+ // --- BẢNG MÀU ĐỒNG BỘ (Copy từ CalendarScreen để đảm bảo consistency) ---
+-class AppColors {
+-  static const Color scaffoldBg = Color(0xFFDDE3ED);
+-  static const Color cardBg = Colors.white;
+-  static const Color primaryBlue = Color(0xFF455A75);
+-  static const Color textDark = Color(0xFF2D3142);
+-  static const Color textLight = Color(0xFF9094A6);
+-  static const Color work = Color(0xFFFF8A00);
+-  static const Color classColor = Color(0xFFA155FF);
+-  static const Color task = Color(0xFF00C566);
+-
+-  // Dark Mode
+-  static const Color scaffoldBgDark = Color(0xFF121212);
+-  static const Color cardBgDark = Color(0xFF1E1E1E);
+-  static const Color textDarkDark = Color(0xFFE0E0E0);
+-  static const Color textLightDark = Color(0xFFA0A0A0);
+-}
++// (Nên xóa class AppColors này nếu đã dùng app_theme.dart toàn app)
+ 
+ class EventDetailScreen extends StatefulWidget {
+   final Map<String, dynamic> data;
+@@ -104,16 +89,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
+   @override
+   Widget build(BuildContext context) {
+     final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-
+-    // --- MÀU SẮC THEO THEME ---
+-    final bgColor = isDark ? AppColors.scaffoldBgDark : AppColors.scaffoldBg;
+-    final cardColor = isDark ? AppColors.cardBgDark : AppColors.cardBg;
+-    final textColor = isDark ? AppColors.textDarkDark : AppColors.textDark;
+-    final subTextColor = isDark ? AppColors.textLightDark : AppColors.textLight;
++    final colorScheme = Theme.of(context).colorScheme;
++    final bgColor = colorScheme.background;
++    final cardColor = colorScheme.surface;
++    final textColor = colorScheme.onSurface;
++    final subTextColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
+ 
+     // Màu nhấn dựa trên loại
+-    final accentColor = widget.isTask ? AppColors.task : AppColors.classColor;
++    final accentColor = widget.isTask ? colorScheme.primary : colorScheme.secondary;
+ 
+     // Format thời gian
+     final rawTime =
+@@ -206,7 +189,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
+                       borderRadius: BorderRadius.circular(24),
+                       boxShadow: [
+                         BoxShadow(
+-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
++                          color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.05),
+                           blurRadius: 20,
+                           offset: const Offset(0, 10),
+                         ),
+@@ -295,10 +278,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
+                     onPressed: _toggleComplete,
+                     style: ElevatedButton.styleFrom(
+                       backgroundColor:
+-                          _isCompleted ? AppColors.primaryBlue : accentColor,
++                          _isCompleted ? colorScheme.primary : accentColor,
+                       elevation: 5,
+                       shadowColor:
+-                          (_isCompleted ? AppColors.primaryBlue : accentColor)
++                          (_isCompleted ? colorScheme.primary : accentColor)
+                               .withOpacity(0.4),
+                       shape: RoundedRectangleBorder(
+                           borderRadius: BorderRadius.circular(20)),
+diff --git a/lib/home/screens/help_screen.dart b/lib/home/screens/help_screen.dart
+index 045c806..2bcfd14 100644
+--- a/lib/home/screens/help_screen.dart
++++ b/lib/home/screens/help_screen.dart
+@@ -1,51 +1,31 @@
+ import 'package:flutter/material.dart';
+ import 'package:provider/provider.dart';
+ import 'package:skedule/features/settings/settings_provider.dart';
+-
+-// --- BẢNG MÀU ĐỒNG BỘ ---
+-class AppColors {
+-  static const Color scaffoldBg = Color(0xFFDDE3ED);
+-  static const Color cardBg = Colors.white;
+-  static const Color primaryBlue = Color(0xFF455A75);
+-  static const Color textDark = Color(0xFF2D3142);
+-  static const Color textLight = Color(0xFF9094A6);
+-  static const Color accent = Color(0xFF3B82F6); // Màu xanh dương điểm nhấn
+-
+-  // Dark Mode
+-  static const Color scaffoldBgDark = Color(0xFF121212);
+-  static const Color cardBgDark = Color(0xFF1E1E1E);
+-  static const Color textDarkDark = Color(0xFFE0E0E0);
+-  static const Color textLightDark = Color(0xFFA0A0A0);
+-}
++import 'package:skedule/theme/app_theme.dart';
+ 
+ class HelpScreen extends StatelessWidget {
+   const HelpScreen({super.key});
+ 
+   @override
+   Widget build(BuildContext context) {
+-    final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-
+-    final bgColor = isDark ? AppColors.scaffoldBgDark : AppColors.scaffoldBg;
+-    final cardColor = isDark ? AppColors.cardBgDark : AppColors.cardBg;
+-    final textColor = isDark ? AppColors.textDarkDark : AppColors.textDark;
+-    final subTextColor = isDark ? AppColors.textLightDark : AppColors.textLight;
++    final colorScheme = Theme.of(context).colorScheme;
++    final textTheme = Theme.of(context).textTheme;
+ 
+     return Scaffold(
+-      backgroundColor: bgColor,
++      backgroundColor: colorScheme.background,
+       appBar: AppBar(
+         backgroundColor: Colors.transparent,
+         elevation: 0,
+         centerTitle: true,
+         title: Text(
+           'Hướng dẫn & Hỗ trợ',
+-          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
++          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onBackground),
+         ),
+         leading: Container(
+           margin: const EdgeInsets.all(8),
+-          decoration: BoxDecoration(color: cardColor, shape: BoxShape.circle),
++          decoration: BoxDecoration(color: colorScheme.surface, shape: BoxShape.circle),
+           child: IconButton(
+-            icon: Icon(Icons.arrow_back_ios_new, size: 18, color: textColor),
++            icon: Icon(Icons.arrow_back_ios_new, size: 18, color: colorScheme.onSurface),
+             onPressed: () => Navigator.pop(context),
+           ),
+         ),
+@@ -57,13 +37,12 @@ class HelpScreen extends StatelessWidget {
+           // --- HEADER GIỚI THIỆU ---
+           Text(
+             'Câu hỏi thường gặp',
+-            style: TextStyle(
+-                fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
++            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onBackground),
+           ),
+           const SizedBox(height: 8),
+           Text(
+             'Tìm hiểu cách sử dụng Skedule hiệu quả nhất.',
+-            style: TextStyle(fontSize: 14, color: subTextColor),
++            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onBackground.withOpacity(0.7)),
+           ),
+           const SizedBox(height: 20),
+ 
+@@ -73,36 +52,32 @@ class HelpScreen extends StatelessWidget {
+             'Sự khác nhau giữa Task và Event?',
+             '• Task (Công việc): Có thể đánh dấu hoàn thành, tính vào chuỗi Streak.\n• Event (Sự kiện): Chỉ là lịch trình diễn ra trong khung giờ nhất định, không có trạng thái hoàn thành.',
+             Icons.help_outline,
+-            cardColor,
+-            textColor,
+-            subTextColor,
++            colorScheme,
++            textTheme,
+           ),
+           _buildFaqItem(
+             context,
+             'Làm sao để tăng chuỗi Streak?',
+             'Bạn cần hoàn thành ít nhất một Task (Công việc) mỗi ngày. Nếu bạn quên một ngày, chuỗi sẽ được tính lại, trừ khi bạn có hoàn thành vào ngày hôm trước (chế độ bảo vệ chuỗi).',
+             Icons.local_fire_department_outlined,
+-            cardColor,
+-            textColor,
+-            subTextColor,
++            colorScheme,
++            textTheme,
+           ),
+           _buildFaqItem(
+             context,
+             'Trợ lý AI có thể làm gì?',
+             'AI có thể giúp bạn lên lịch trình, giải đáp thắc mắc, tóm tắt ghi chú. Tính năng này yêu cầu tài khoản Premium.',
+             Icons.smart_toy_outlined,
+-            cardColor,
+-            textColor,
+-            subTextColor,
++            colorScheme,
++            textTheme,
+           ),
+           _buildFaqItem(
+             context,
+             'Làm sao để nâng cấp Premium?',
+             'Vào trang Tài khoản hoặc bấm vào biểu tượng Vương miện ở màn hình AI để xem các gói đăng ký.',
+             Icons.workspace_premium_outlined,
+-            cardColor,
+-            textColor,
+-            subTextColor,
++            colorScheme,
++            textTheme,
+           ),
+ 
+           const SizedBox(height: 30),
+@@ -110,22 +85,21 @@ class HelpScreen extends StatelessWidget {
+           // --- LIÊN HỆ HỖ TRỢ ---
+           Text(
+             'Cần hỗ trợ thêm?',
+-            style: TextStyle(
+-                fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
++            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onBackground),
+           ),
+           const SizedBox(height: 16),
+-          _buildContactCard(cardColor, textColor, subTextColor),
++          _buildContactCard(colorScheme, textTheme),
+         ],
+       ),
+     );
+   }
+ 
+   Widget _buildFaqItem(BuildContext context, String question, String answer,
+-      IconData icon, Color cardColor, Color textColor, Color subTextColor) {
++      IconData icon, ColorScheme colorScheme, TextTheme textTheme) {
+     return Container(
+       margin: const EdgeInsets.only(bottom: 16),
+       decoration: BoxDecoration(
+-        color: cardColor,
++        color: colorScheme.surface,
+         borderRadius: BorderRadius.circular(16),
+         boxShadow: [
+           BoxShadow(
+@@ -141,27 +115,24 @@ class HelpScreen extends StatelessWidget {
+           leading: Container(
+             padding: const EdgeInsets.all(8),
+             decoration: BoxDecoration(
+-              color: AppColors.primaryBlue.withOpacity(0.1),
++              color: colorScheme.primary.withOpacity(0.1),
+               shape: BoxShape.circle,
+             ),
+-            child: Icon(icon, color: AppColors.primaryBlue, size: 20),
++            child: Icon(icon, color: colorScheme.primary, size: 20),
+           ),
+           title: Text(
+             question,
+-            style: TextStyle(
+-                fontWeight: FontWeight.bold, fontSize: 15, color: textColor),
++            style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+           ),
+-          iconColor: AppColors.primaryBlue,
+-          collapsedIconColor: subTextColor,
++          iconColor: colorScheme.primary,
++          collapsedIconColor: colorScheme.onSurface.withOpacity(0.5),
+           children: [
+             Padding(
+               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+               child: Text(
+                 answer,
+-                style: TextStyle(
+-                    fontSize: 14,
+-                    color: textColor.withOpacity(0.8),
+-                    height: 1.5),
++                style: textTheme.bodyMedium?.copyWith(
++                    color: colorScheme.onSurface.withOpacity(0.8), height: 1.5),
+               ),
+             ),
+           ],
+@@ -170,12 +141,11 @@ class HelpScreen extends StatelessWidget {
+     );
+   }
+ 
+-  Widget _buildContactCard(
+-      Color cardColor, Color textColor, Color subTextColor) {
++  Widget _buildContactCard(ColorScheme colorScheme, TextTheme textTheme) {
+     return Container(
+       padding: const EdgeInsets.all(20),
+       decoration: BoxDecoration(
+-        color: cardColor,
++        color: colorScheme.surface,
+         borderRadius: BorderRadius.circular(20),
+         boxShadow: [
+           BoxShadow(
+@@ -202,15 +172,12 @@ class HelpScreen extends StatelessWidget {
+             children: [
+               Text(
+                 'Gửi email cho chúng tôi',
+-                style: TextStyle(
+-                    fontWeight: FontWeight.bold,
+-                    fontSize: 16,
+-                    color: textColor),
++                style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+               ),
+               const SizedBox(height: 4),
+               Text(
+                 'support@skedule.com',
+-                style: TextStyle(color: subTextColor, fontSize: 14),
++                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+               ),
+             ],
+           )
+diff --git a/lib/home/screens/home_screen.dart b/lib/home/screens/home_screen.dart
+index 8c23a50..fedc22d 100644
+--- a/lib/home/screens/home_screen.dart
++++ b/lib/home/screens/home_screen.dart
+@@ -7,7 +7,7 @@ import 'package:skedule/home/screens/ai_agent_screen.dart';
+ import 'package:skedule/home/screens/dashboard_page.dart';
+ import 'package:skedule/home/screens/preferences_screen.dart';
+ import 'package:skedule/home/screens/note_screen.dart';
+-import 'package:skedule/features/payment/payment_screen.dart';
++import 'package:skedule/home/screens/payment_screen.dart';
+ import 'package:skedule/features/payment/subscription_service.dart';
+ 
+ class HomeScreen extends StatefulWidget {
+@@ -106,38 +106,36 @@ class _HomeScreenState extends State<HomeScreen> {
+ 
+   @override
+   Widget build(BuildContext context) {
++    final colorScheme = Theme.of(context).colorScheme;
++    final textTheme = Theme.of(context).textTheme;
+     return Scaffold(
+-      // --- APP BAR ĐÃ SỬA ---
+       appBar: AppBar(
+-        // Hiển thị lời chào thay vì tên App
++        backgroundColor: colorScheme.background,
++        elevation: 0,
+         title: Text(
+           'Xin chào, $_userName',
+-          style: const TextStyle(fontWeight: FontWeight.bold),
++          style: textTheme.titleLarge?.copyWith(
++              fontWeight: FontWeight.bold, color: colorScheme.onBackground),
+         ),
+         actions: [
+-          // Chỉ hiện nút Premium nếu chưa mua
+           if (!_isPremium)
+             IconButton(
+-              icon: const Icon(Icons.workspace_premium, color: Colors.orange),
++              icon: Icon(Icons.workspace_premium, color: colorScheme.secondary),
+               onPressed: _navigateToPayment,
+               tooltip: 'Nâng cấp Premium',
+             ),
+         ],
+       ),
+-      // ----------------------
+-
+       body: IndexedStack(
+         index: _selectedIndex,
+         children: _mainPages,
+       ),
+-
+-      // --- NÚT AI ---
+       floatingActionButton: SizedBox(
+         width: 70,
+         height: 70,
+         child: FloatingActionButton(
+-          backgroundColor: Colors.transparent,
+-          elevation: 0,
++          backgroundColor: colorScheme.primary,
++          elevation: 4,
+           onPressed: () {
+             Navigator.push(
+               context,
+@@ -148,39 +146,43 @@ class _HomeScreenState extends State<HomeScreen> {
+           child: const AiChatBubble(),
+         ),
+       ),
+-      // ---------------
+-
+       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+       bottomNavigationBar: BottomAppBar(
++        color: colorScheme.surface,
+         shape: const CircularNotchedRectangle(),
+         notchMargin: 8.0,
+         child: Row(
+           mainAxisAlignment: MainAxisAlignment.spaceAround,
+           children: <Widget>[
+             _buildNavItem(
+-                icon: Icons.dashboard_rounded, label: 'Dashboard', index: 0),
++                icon: Icons.dashboard_rounded, label: 'Dashboard', index: 0, colorScheme: colorScheme),
+             _buildNavItem(
+                 icon: Icons.calendar_month_rounded,
+                 label: 'Calendar',
+-                index: 1),
+-            const SizedBox(width: 48), // Khoảng trống cho nút AI
++                index: 1,
++                colorScheme: colorScheme),
++            const SizedBox(width: 48),
+             _buildNavItem(
+-                icon: Icons.note_alt_rounded, label: 'Notes', index: 2),
++                icon: Icons.note_alt_rounded, label: 'Notes', index: 2, colorScheme: colorScheme),
+             _buildNavItem(
+-                icon: Icons.settings_rounded, label: 'Preferences', index: 3),
++                icon: Icons.settings_rounded, label: 'Preferences', index: 3, colorScheme: colorScheme),
+           ],
+         ),
+       ),
+     );
+   }
+ 
+-  Widget _buildNavItem(
+-      {required IconData icon, required String label, required int index}) {
++  Widget _buildNavItem({
++    required IconData icon,
++    required String label,
++    required int index,
++    required ColorScheme colorScheme,
++  }) {
+     final isSelected = _selectedIndex == index && index != 3;
+     return IconButton(
+       icon: Icon(
+         icon,
+-        color: isSelected ? const Color(0xFF455A75) : Colors.grey.shade400,
++        color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.5),
+         size: 28,
+       ),
+       onPressed: () => _onNavItemTapped(index),
+diff --git a/lib/home/screens/note_screen.dart b/lib/home/screens/note_screen.dart
+index 6cd777b..5c0c16c 100644
+--- a/lib/home/screens/note_screen.dart
++++ b/lib/home/screens/note_screen.dart
+@@ -17,20 +17,17 @@ class _NoteScreenState extends State<NoteScreen> {
+   final _supabase = Supabase.instance.client;
+   List<Note> _notes = [];
+   bool _isLoading = true;
+-
+-  // Biến quản lý kênh lắng nghe Realtime
+   RealtimeChannel? _notesSubscription;
+ 
+   @override
+   void initState() {
+     super.initState();
+     _fetchNotes();
+-    _subscribeToNotes(); // <--- Kích hoạt lắng nghe ngay khi mở app
++    _subscribeToNotes();
+   }
+ 
+   @override
+   void dispose() {
+-    // Hủy đăng ký khi thoát màn hình để tránh rò rỉ bộ nhớ
+     if (_notesSubscription != null) {
+       _supabase.removeChannel(_notesSubscription!);
+     }
+@@ -84,30 +81,31 @@ class _NoteScreenState extends State<NoteScreen> {
+ 
+   @override
+   Widget build(BuildContext context) {
++    final colorScheme = Theme.of(context).colorScheme;
++    final textTheme = Theme.of(context).textTheme;
+     final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
+-    final textColor = isDark ? Colors.white : Colors.black;
+-    final subTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
+-    final iconColor = isDark ? Colors.grey[400] : Colors.grey[400];
+ 
+     return Scaffold(
+-      backgroundColor: backgroundColor,
++      backgroundColor: colorScheme.background,
+       appBar: AppBar(
+-        backgroundColor: backgroundColor,
++        backgroundColor: colorScheme.background,
+         elevation: 0,
+-        title: Text(settings.strings.translate('note'),
+-            style: TextStyle(color: textColor)),
+-        iconTheme: IconThemeData(color: textColor),
++        title: Text(
++          settings.strings.translate('note'),
++          style: textTheme.titleLarge?.copyWith(color: colorScheme.onBackground),
++        ),
++        iconTheme: IconThemeData(color: colorScheme.onBackground),
+         actions: [
+           IconButton(
+             icon: const Icon(Icons.search),
++            color: colorScheme.primary,
+             onPressed: () {
+               // TODO: Implement search
+             },
+           ),
+           IconButton(
+             icon: const Icon(Icons.add),
++            color: colorScheme.primary,
+             onPressed: () async {
+               await Navigator.push(
+                 context,
+@@ -115,34 +113,30 @@ class _NoteScreenState extends State<NoteScreen> {
+                   builder: (context) => const NoteDetailScreen(),
+                 ),
+               );
+-              // Reload thủ công sau khi quay về (dự phòng nếu Realtime chậm)
+               _fetchNotes();
+             },
+           ),
+         ],
+       ),
+-      // Thêm RefreshIndicator để user có thể kéo xuống reload thủ công
+       body: RefreshIndicator(
+         onRefresh: _fetchNotes,
+-        color: Theme.of(context).primaryColor,
++        color: colorScheme.primary,
+         child: _isLoading
+             ? const Center(child: CircularProgressIndicator())
+             : _notes.isEmpty
+                 ? Center(
+                     child: SingleChildScrollView(
+-                      // Để RefreshIndicator hoạt động cần scrollable
+                       physics: const AlwaysScrollableScrollPhysics(),
+                       child: Column(
+                         mainAxisAlignment: MainAxisAlignment.center,
+                         children: [
+                           Icon(Icons.note_alt_outlined,
+-                              size: 64, color: iconColor),
++                              size: 64, color: colorScheme.primary.withOpacity(0.5)),
+                           const SizedBox(height: 16),
+                           Text(
+                             settings.strings.translate('no_notes_yet'),
+-                            style: TextStyle(color: subTextColor, fontSize: 16),
++                            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onBackground.withOpacity(0.6), fontSize: 16),
+                           ),
+-                          // Trick để chiếm chiều cao màn hình, giúp kéo refresh được
+                           SizedBox(
+                               height: MediaQuery.of(context).size.height * 0.4),
+                         ],
+@@ -150,8 +144,7 @@ class _NoteScreenState extends State<NoteScreen> {
+                     ),
+                   )
+                 : ListView.builder(
+-                    physics:
+-                        const AlwaysScrollableScrollPhysics(), // Quan trọng cho RefreshIndicator
++                    physics: const AlwaysScrollableScrollPhysics(),
+                     padding: const EdgeInsets.all(16),
+                     itemCount: _notes.length,
+                     itemBuilder: (context, index) {
+@@ -162,11 +155,9 @@ class _NoteScreenState extends State<NoteScreen> {
+                           await Navigator.push(
+                             context,
+                             MaterialPageRoute(
+-                              builder: (context) =>
+-                                  NoteDetailScreen(note: note),
++                              builder: (context) => NoteDetailScreen(note: note),
+                             ),
+                           );
+-                          // Không cần gọi _fetchNotes() ở đây vì Realtime sẽ tự bắt update
+                         },
+                       );
+                     },
+diff --git a/lib/features/payment/payment_screen.dart b/lib/home/screens/payment_screen.dart
+similarity index 72%
+rename from lib/features/payment/payment_screen.dart
+rename to lib/home/screens/payment_screen.dart
+index 756753a..c3ee78c 100644
+--- a/lib/features/payment/payment_screen.dart
++++ b/lib/home/screens/payment_screen.dart
+@@ -146,17 +146,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
+   @override
+   Widget build(BuildContext context) {
+     final settings = Provider.of<SettingsProvider>(context);
++    final colorScheme = Theme.of(context).colorScheme;
++    final textTheme = Theme.of(context).textTheme;
+ 
+     return Scaffold(
+-      backgroundColor: Colors.grey[50],
+       appBar: AppBar(
++        backgroundColor: colorScheme.background,
+         title: Row(
++          mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+             Text(
+               _isPremium
+                   ? (_planName ?? settings.strings.translate('premium'))
+                   : settings.strings.translate('upgrade_premium'),
+-              style: const TextStyle(color: Colors.black),
++              style: textTheme.titleLarge?.copyWith(
++                  color: colorScheme.onBackground, fontWeight: FontWeight.bold),
+             ),
+             if (_isPremium) ...[
+               const SizedBox(width: 8),
+@@ -164,9 +168,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
+             ],
+           ],
+         ),
+-        backgroundColor: Colors.white,
+         elevation: 0,
+-        iconTheme: const IconThemeData(color: Colors.black),
++        centerTitle: true,
+       ),
+       body: _isLoading
+           ? const Center(child: CircularProgressIndicator())
+@@ -175,80 +178,63 @@ class _PaymentScreenState extends State<PaymentScreen> {
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                 children: [
+-                  const SizedBox(height: 10),
+-                  Text(
+-                    settings.strings.translate('unlock_full_potential'),
+-                    textAlign: TextAlign.center,
+-                    style: const TextStyle(
+-                      fontSize: 28,
+-                      fontWeight: FontWeight.bold,
+-                      color: Color(0xFF4A6C8B),
+-                    ),
+-                  ),
+-                  const SizedBox(height: 10),
++                  const SizedBox(height: 20),
+                   Text(
+-                    settings.strings.translate('get_access_exclusive'),
++                    settings.strings.translate('choose_plan'),
+                     textAlign: TextAlign.center,
+-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
++                    style: textTheme.headlineSmall?.copyWith(
++                        fontWeight: FontWeight.bold,
++                        color: colorScheme.onBackground),
+                   ),
+                   const SizedBox(height: 30),
+-                  _buildFeatureItem(Icons.check_circle,
+-                      settings.strings.translate('full_ai_integration')),
+-                  _buildFeatureItem(
+-                      Icons.check_circle, settings.strings.translate('no_ads')),
+-                  _buildFeatureItem(Icons.check_circle,
+-                      settings.strings.translate('advanced_scheduling')),
+-                  _buildFeatureItem(Icons.check_circle,
+-                      settings.strings.translate('unlimited_tasks')),
+-                  const SizedBox(height: 40),
+-                  Text(
+-                    settings.strings.translate('choose_plan'),
+-                    style: const TextStyle(
+-                        fontSize: 20, fontWeight: FontWeight.bold),
+-                  ),
+-                  const SizedBox(height: 20),
+                   _buildPlanCard(
++                    context,
+                     title: settings.strings.translate('monthly'),
+                     price: '50,000 VND',
+                     duration:
+                         '/${settings.strings.translate('monthly').toLowerCase()}',
+                     amount: 50000,
+-                    description: 'Skedule VIP - 1 Month',
+-                    color: Colors.blue.shade50,
+-                    textColor: Colors.blue.shade900,
++                    description: '${settings.strings.translate('app_name')} VIP - 1 ${settings.strings.translate('monthly')}',
+                     selectText: settings.strings.translate('select'),
++                    colorScheme: colorScheme,
++                    textTheme: textTheme,
+                   ),
+                   const SizedBox(height: 16),
+                   _buildPlanCard(
++                    context,
+                     title: settings.strings.translate('six_months'),
+                     price: '270,000 VND',
+                     duration:
+-                        '/6 ${settings.strings.translate('monthly').toLowerCase().replaceAll('monthly', 'months')}', // Approximate
++                        '/6 ${settings.strings.translate('monthly').toLowerCase().replaceAll(settings.strings.translate('monthly').toLowerCase(), settings.strings.translate('six_months').toLowerCase())}',
+                     amount: 270000,
+-                    description: 'Skedule VIP - 6 Months',
++                    description: '${settings.strings.translate('app_name')} VIP - 6 ${settings.strings.translate('monthly')}',
+                     isPopular: true,
+                     saveText: settings.strings.translate('save_10'),
+                     selectText: settings.strings.translate('select'),
++                    colorScheme: colorScheme,
++                    textTheme: textTheme,
+                   ),
+                   const SizedBox(height: 16),
+                   _buildPlanCard(
++                    context,
+                     title: settings.strings.translate('yearly'),
+                     price: '500,000 VND',
+                     duration:
+                         '/${settings.strings.translate('yearly').toLowerCase()}',
+                     amount: 500000,
+-                    description: 'Skedule VIP - 1 Year',
+-                    color: Colors.amber.shade50,
+-                    textColor: Colors.amber.shade900,
+-                    borderColor: Colors.amber,
++                    description: '${settings.strings.translate('app_name')} VIP - 1 ${settings.strings.translate('yearly')}',
++                    isBestValue: true,
+                     saveText: settings.strings.translate('best_value'),
+                     selectText: settings.strings.translate('select'),
++                    colorScheme: colorScheme,
++                    textTheme: textTheme,
+                   ),
+                   const SizedBox(height: 30),
+                   Text(
+                     settings.strings.translate('recurring_billing'),
+                     textAlign: TextAlign.center,
+-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
++                    style: textTheme.bodySmall?.copyWith(
++                        color: colorScheme.onBackground.withOpacity(0.6)),
+                   ),
+                 ],
+               ),
+@@ -256,37 +242,33 @@ class _PaymentScreenState extends State<PaymentScreen> {
+     );
+   }
+ 
+-  Widget _buildFeatureItem(IconData icon, String text) {
+-    return Padding(
+-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+-      child: Row(
+-        children: [
+-          Icon(icon, color: const Color(0xFF4A6C8B), size: 24),
+-          const SizedBox(width: 12),
+-          Text(text, style: const TextStyle(fontSize: 16)),
+-        ],
+-      ),
+-    );
+-  }
+-
+-  Widget _buildPlanCard({
++  Widget _buildPlanCard(
++    BuildContext context, {
+     required String title,
+     required String price,
+     required String duration,
+     required int amount,
+     required String description,
+     required String selectText,
++    required ColorScheme colorScheme,
++    required TextTheme textTheme,
+     bool isPopular = false,
++    bool isBestValue = false,
+     String? saveText,
+-    Color? color,
+-    Color? textColor,
+-    Color? borderColor,
+   }) {
+-    final cardColor = color ?? Colors.white;
+-    final textCol = textColor ?? Colors.black;
+-    final borderCol = borderColor ??
+-        (isPopular ? const Color(0xFF4A6C8B) : Colors.grey.shade300);
+-    final borderWidth = isPopular || borderColor != null ? 2.0 : 1.0;
++    Color cardBg = colorScheme.surface;
++    Color borderColor = colorScheme.outlineVariant;
++    double borderWidth = 1.0;
++
++    if (isPopular) {
++      borderColor = colorScheme.primary;
++      borderWidth = 2.0;
++      cardBg = colorScheme.primary.withOpacity(0.08);
++    } else if (isBestValue) {
++      borderColor = Colors.amber;
++      borderWidth = 2.0;
++      cardBg = Colors.amber.withOpacity(0.08);
++    }
+ 
+     return GestureDetector(
+       onTap: () => _initiatePayment(amount, description),
+@@ -295,12 +277,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
+         children: [
+           Container(
+             decoration: BoxDecoration(
+-              color: cardColor,
++              color: cardBg,
+               borderRadius: BorderRadius.circular(16),
+-              border: Border.all(color: borderCol, width: borderWidth),
++              border: Border.all(color: borderColor, width: borderWidth),
+               boxShadow: [
+                 BoxShadow(
+-                  color: Colors.black.withOpacity(0.05),
++                  color: colorScheme.shadow.withOpacity(0.05),
+                   blurRadius: 10,
+                   offset: const Offset(0, 4),
+                 ),
+@@ -314,25 +296,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       Text(title,
+-                          style: TextStyle(
+-                              fontSize: 18,
++                          style: textTheme.titleMedium?.copyWith(
+                               fontWeight: FontWeight.bold,
+-                              color: textCol)),
++                              color: colorScheme.onSurface)),
+                       const SizedBox(height: 4),
+                       Row(
+                         crossAxisAlignment: CrossAxisAlignment.baseline,
+                         textBaseline: TextBaseline.alphabetic,
+                         children: [
+                           Text(price,
+-                              style: TextStyle(
+-                                  fontSize: 22,
++                              style: textTheme.headlineSmall?.copyWith(
+                                   fontWeight: FontWeight.w800,
+-                                  color: textCol)),
++                                  color: isBestValue
++                                      ? Colors.amber[700]
++                                      : (isPopular ? colorScheme.primary : colorScheme.onSurface))),
+                           const SizedBox(width: 4),
+                           Text(duration,
+-                              style: TextStyle(
+-                                  fontSize: 14,
+-                                  color: textCol.withOpacity(0.7))),
++                              style: textTheme.bodySmall?.copyWith(
++                                  color: colorScheme.onSurface.withOpacity(0.7))),
+                         ],
+                       ),
+                     ],
+@@ -341,19 +322,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
+                 ElevatedButton(
+                   onPressed: () => _initiatePayment(amount, description),
+                   style: ElevatedButton.styleFrom(
+-                    backgroundColor:
+-                        isPopular ? const Color(0xFF4A6C8B) : Colors.white,
+-                    foregroundColor:
+-                        isPopular ? Colors.white : const Color(0xFF4A6C8B),
+-                    side: isPopular
++                    backgroundColor: isPopular
++                        ? colorScheme.primary
++                        : (isBestValue ? Colors.amber : colorScheme.surface),
++                    foregroundColor: (isPopular || isBestValue)
++                        ? Colors.white
++                        : colorScheme.primary,
++                    side: (isPopular || isBestValue)
+                         ? null
+-                        : const BorderSide(color: Color(0xFF4A6C8B)),
++                        : BorderSide(color: colorScheme.primary),
+                     shape: RoundedRectangleBorder(
+                         borderRadius: BorderRadius.circular(20)),
+                     padding: const EdgeInsets.symmetric(
+                         horizontal: 24, vertical: 12),
++                    elevation: 0,
+                   ),
+-                  child: Text(selectText),
++                  child: Text(selectText,
++                      style: textTheme.bodyMedium?.copyWith(
++                          fontWeight: FontWeight.bold)),
+                 ),
+               ],
+             ),
+@@ -366,11 +352,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
+                 padding:
+                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                 decoration: BoxDecoration(
+-                  color: Colors.amber,
++                  color: isBestValue ? Colors.amber : colorScheme.primary,
+                   borderRadius: BorderRadius.circular(20),
+                   boxShadow: [
+                     BoxShadow(
+-                      color: Colors.black.withOpacity(0.1),
++                      color: colorScheme.shadow.withOpacity(0.1),
+                       blurRadius: 4,
+                       offset: const Offset(0, 2),
+                     ),
+@@ -378,8 +364,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
+                 ),
+                 child: Text(
+                   saveText,
+-                  style: const TextStyle(
+-                    color: Colors.black,
++                  style: textTheme.bodySmall?.copyWith(
++                    color: Colors.white,
+                     fontWeight: FontWeight.bold,
+                     fontSize: 12,
+                   ),
+diff --git a/lib/home/screens/preferences_screen.dart b/lib/home/screens/preferences_screen.dart
+index 1717f99..3d8fdec 100644
+--- a/lib/home/screens/preferences_screen.dart
++++ b/lib/home/screens/preferences_screen.dart
+@@ -22,13 +22,12 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+   bool _isPremium = false;
+   String? _planName;
+   bool _isLoading = true;
+-  String _selectedTab = 'Account'; // Track selected tab
++  String _selectedTab = 'account_tab'; 
+ 
+   @override
+   void initState() {
+     super.initState();
+     _fetchSubscriptionStatus();
+-    // Settings are now loaded by SettingsProvider in main.dart
+   }
+ 
+   Future<void> _fetchSubscriptionStatus() async {
+@@ -73,10 +72,8 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+   @override
+   Widget build(BuildContext context) {
+     final settings = Provider.of<SettingsProvider>(context);
+-    final isDark = settings.isDarkMode;
+-    final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
+-    final textColor = isDark ? Colors.white : Colors.black;
+-    final subTextColor = isDark ? Colors.grey[400] : Colors.grey;
++    final colorScheme = Theme.of(context).colorScheme;
++    final textTheme = Theme.of(context).textTheme;
+ 
+     final user = _supabase.auth.currentUser;
+     final userEmail = user?.email ?? 'N/A';
+@@ -94,23 +91,23 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+     }
+ 
+     return Container(
+-      color: backgroundColor,
++      color: colorScheme.background,
+       padding: const EdgeInsets.all(16.0),
+       child: Column(
+         mainAxisSize: MainAxisSize.min,
+         crossAxisAlignment: CrossAxisAlignment.start,
+         children: [
+-          _buildHeader(context, settings),
++          _buildHeader(context, settings, colorScheme, textTheme),
+           const SizedBox(height: 16),
+-          _buildTabs(settings),
++          _buildTabs(settings, colorScheme, textTheme),
+           const SizedBox(height: 24),
+           
+-          if (_selectedTab == 'Account') ...[
+-            Text(settings.strings.translate('account_info'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
++          if (_selectedTab == 'account_tab') ...[
++            Text(settings.strings.translate('account_info'), style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+             const SizedBox(height: 16),
+-            _buildAccountInfoCard(userInitials, userName, userEmail, settings),
++            _buildAccountInfoCard(userInitials, userName, userEmail, settings, colorScheme, textTheme),
+             const SizedBox(height: 16),
+-            _buildInfoTile(icon: Icons.calendar_today_outlined, text: '${settings.strings.translate('member_since')} $memberSince', isDark: isDark),
++            _buildInfoTile(icon: Icons.calendar_today_outlined, text: '${settings.strings.translate('member_since')} $memberSince', colorScheme: colorScheme, textTheme: textTheme),
+             const Divider(height: 32),
+             _buildActionTile(
+               context: context,
+@@ -121,12 +118,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+                   MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                 );
+                 if (result == true && mounted) {
+-                  setState(() {
+-                    // Trigger rebuild to update user info
+-                  });
++                  setState(() {});
+                 }
+               },
+-              isDark: isDark,
++              colorScheme: colorScheme,
++              textTheme: textTheme,
+             ),
+             _buildActionTile(
+               context: context,
+@@ -134,19 +130,21 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+               text: settings.strings.translate('sign_out'),
+               color: Colors.red,
+               onTap: () => _signOut(context),
+-              isDark: isDark,
++              colorScheme: colorScheme,
++              textTheme: textTheme,
+             ),
+-          ] else if (_selectedTab == 'Settings') ...[
+-            Text(settings.strings.translate('general_settings'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
++          ] else if (_selectedTab == 'settings_tab') ...[
++            Text(settings.strings.translate('general_settings'), style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+             const SizedBox(height: 16),
+             _buildSettingItem(
+               icon: Icons.language,
+               title: settings.strings.translate('language'),
+-              isDark: isDark,
++              colorScheme: colorScheme,
++              textTheme: textTheme,
+               trailing: DropdownButton<String>(
+                 value: settings.language,
+-                dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+-                style: TextStyle(color: textColor),
++                dropdownColor: colorScheme.surface,
++                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
+                 underline: const SizedBox(),
+                 items: ['English', 'Tiếng Việt'].map((String value) {
+                   return DropdownMenuItem<String>(
+@@ -164,35 +162,38 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+             _buildSettingItem(
+               icon: Icons.dark_mode_outlined,
+               title: settings.strings.translate('dark_mode'),
+-              isDark: isDark,
++              colorScheme: colorScheme,
++              textTheme: textTheme,
+               trailing: Switch(
+                 value: settings.isDarkMode,
+                 onChanged: (value) {
+                   settings.updateSetting('is_dark_mode', value);
+                 },
+-                activeColor: const Color(0xFF4A6C8B),
++                activeColor: colorScheme.primary,
+               ),
+             ),
+             _buildSettingItem(
+               icon: Icons.access_time,
+               title: settings.strings.translate('24_hour_time'),
+-              isDark: isDark,
++              colorScheme: colorScheme,
++              textTheme: textTheme,
+               trailing: Switch(
+                 value: settings.is24HourFormat,
+                 onChanged: (value) {
+                   settings.updateSetting('is_24_hour_format', value);
+                 },
+-                activeColor: const Color(0xFF4A6C8B),
++                activeColor: colorScheme.primary,
+               ),
+             ),
+             _buildSettingItem(
+               icon: Icons.date_range,
+               title: settings.strings.translate('date_format'),
+-              isDark: isDark,
++              colorScheme: colorScheme,
++              textTheme: textTheme,
+               trailing: DropdownButton<String>(
+                 value: settings.dateFormat,
+-                dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+-                style: TextStyle(color: textColor),
++                dropdownColor: colorScheme.surface,
++                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
+                 underline: const SizedBox(),
+                 items: ['dd/MM/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd'].map((String value) {
+                   return DropdownMenuItem<String>(
+@@ -210,81 +211,85 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+           ],
+ 
+           const SizedBox(height: 32),
+-          Center(child: Text(settings.strings.translate('version'), style: TextStyle(color: subTextColor))),
++          Center(child: Text(settings.strings.translate('version'), style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withOpacity(0.6)))),
+           const SizedBox(height: 32),
+         ],
+       ),
+     );
+   }
+ 
+-  // --- CÁC WIDGET PHỤ (ĐÃ ĐƯA VÀO BÊN TRONG CLASS) ---
+-  Widget _buildHeader(BuildContext context, SettingsProvider settings) {
+-    final isDark = settings.isDarkMode;
+-    final textColor = isDark ? Colors.white : Colors.black;
+-    final iconColor = isDark ? Colors.white : Colors.black;
+-
++  Widget _buildHeader(BuildContext context, SettingsProvider settings, ColorScheme colorScheme, TextTheme textTheme) {
+     return Row(
+       mainAxisAlignment: MainAxisAlignment.center,
+       children: [
+-        Icon(Icons.settings_outlined, color: iconColor),
++        Icon(Icons.settings_outlined, color: colorScheme.primary),
+         const SizedBox(width: 8),
+-        Text(settings.strings.translate('preferences'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
++        Text(settings.strings.translate('preferences'), style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+         const Spacer(),
+         IconButton(
+-          icon: Icon(Icons.close, color: iconColor),
++          icon: Icon(Icons.close, color: colorScheme.onSurface),
+           onPressed: () => Navigator.of(context).pop(),
+         ),
+       ],
+     );
+   }
+ 
+-  Widget _buildTabs(SettingsProvider settings) {
+-    final isDark = settings.isDarkMode;
+-    final backgroundColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200;
+-
++  Widget _buildTabs(SettingsProvider settings, ColorScheme colorScheme, TextTheme textTheme) {
+     return Container(
+       padding: const EdgeInsets.all(4),
+       decoration: BoxDecoration(
+-        color: backgroundColor,
++        color: colorScheme.surfaceVariant,
+         borderRadius: BorderRadius.circular(12),
+       ),
+       child: Row(
+         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+         children: [
+-          _buildTabButton('Account', isSelected: _selectedTab == 'Account', isDark: isDark),
+-          _buildTabButton('Settings', isSelected: _selectedTab == 'Settings', isDark: isDark),
+-          // _buildTabButton('Theme'), // Merged into Settings for simplicity
++          _buildTabButton(
++            settings.strings.translate('account_info'),
++            tabKey: 'account_tab',
++            isSelected: _selectedTab == 'account_tab',
++            colorScheme: colorScheme,
++            textTheme: textTheme,
++          ),
++          _buildTabButton(
++            settings.strings.translate('general_settings'),
++            tabKey: 'settings_tab',
++            isSelected: _selectedTab == 'settings_tab',
++            colorScheme: colorScheme,
++            textTheme: textTheme,
++          ),
+         ],
+       ),
+     );
+   }
+ 
+-  Widget _buildTabButton(String text, {bool isSelected = false, required bool isDark}) {
+-    final selectedColor = isDark ? const Color(0xFF4A6C8B) : Colors.white;
+-    final unselectedTextColor = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
+-    final selectedTextColor = isDark ? Colors.white : const Color(0xFF4A6C8B);
++  Widget _buildTabButton(String text, {required String tabKey, bool isSelected = false, required ColorScheme colorScheme, required TextTheme textTheme}) {
++    final selectedColor = colorScheme.primary;
++    final unselectedTextColor = colorScheme.onSurface.withOpacity(0.7);
++    final selectedTextColor = colorScheme.onPrimary;
+ 
+     return Expanded(
+       child: ElevatedButton(
+         onPressed: () {
+           setState(() {
+-            _selectedTab = text;
++            _selectedTab = tabKey;
+           });
+         },
+         style: ElevatedButton.styleFrom(
+           backgroundColor: isSelected ? selectedColor : Colors.transparent,
+           foregroundColor: isSelected ? selectedTextColor : unselectedTextColor,
+           elevation: isSelected ? 2 : 0,
++          shadowColor: Colors.transparent,
+           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+         ),
+-        child: Text(text),
++        child: Text(text, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+       ),
+     );
+   }
+ 
+-  Widget _buildAccountInfoCard(String initials, String name, String email, SettingsProvider settings) {
++  Widget _buildAccountInfoCard(String initials, String name, String email, SettingsProvider settings, ColorScheme colorScheme, TextTheme textTheme) {
+     return Card(
+-      color: const Color(0xFF4A6C8B),
++      color: colorScheme.primary,
+       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+       child: Padding(
+         padding: const EdgeInsets.all(16.0),
+@@ -294,46 +299,44 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+               children: [
+                 CircleAvatar(
+                   radius: 24,
+-                  backgroundColor: Colors.white,
+-                  child: Text(initials, style: const TextStyle(color: Color(0xFF4A6C8B), fontWeight: FontWeight.bold, fontSize: 20)),
++                  backgroundColor: colorScheme.onPrimary,
++                  child: Text(initials, style: textTheme.titleMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+                 ),
+                 const SizedBox(width: 12),
+                 Expanded(
+                   child: Column(
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+-                      Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+-                      Text(email, style: TextStyle(color: Colors.white.withOpacity(0.8))),
++                      Text(name, style: textTheme.bodyLarge?.copyWith(color: colorScheme.onPrimary, fontWeight: FontWeight.bold)),
++                      Text(email, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onPrimary.withOpacity(0.8))),
+                     ],
+                   ),
+                 ),
+                 IconButton(
+-                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
++                  icon: Icon(Icons.edit_outlined, color: colorScheme.onPrimary),
+                   onPressed: () async {
+                     final result = await Navigator.of(context).push(
+                       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                     );
+                     if (result == true && mounted) {
+-                      setState(() {
+-                        // Trigger rebuild to update user info
+-                      });
++                      setState(() {});
+                     }
+                   },
+                 ),
+               ],
+             ),
+-            const Divider(color: Colors.white30, height: 24),
++            Divider(color: colorScheme.onPrimary.withOpacity(0.3), height: 24),
+             Row(
+               mainAxisAlignment: MainAxisAlignment.spaceAround,
+               children: [
+-                _buildStat('127', settings.strings.translate('tasks_done')),
+-                _buildStat('12', settings.strings.translate('day_streak')),
++                _buildStat('127', settings.strings.translate('tasks_done'), colorScheme, textTheme),
++                _buildStat('12', settings.strings.translate('day_streak'), colorScheme, textTheme),
+                 Container(
+                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                   decoration: BoxDecoration(
+-                    color: _isPremium ? Colors.amber : Colors.white.withOpacity(0.2),
++                    color: _isPremium ? Colors.amber : colorScheme.onPrimary.withOpacity(0.2),
+                     borderRadius: BorderRadius.circular(20),
+-                    border: _isPremium ? null : Border.all(color: Colors.white.withOpacity(0.5)),
++                    border: _isPremium ? null : Border.all(color: colorScheme.onPrimary.withOpacity(0.5)),
+                   ),
+                   child: _isLoading
+                       ? const SizedBox(
+@@ -353,8 +356,8 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+                             ],
+                             Text(
+                               _isPremium ? (_planName ?? settings.strings.translate('premium')) : settings.strings.translate('free_plan'),
+-                              style: TextStyle(
+-                                color: _isPremium ? Colors.white : Colors.white.withOpacity(0.9),
++                              style: textTheme.bodyMedium?.copyWith(
++                                color: _isPremium ? Colors.white : colorScheme.onPrimary.withOpacity(0.9),
+                                 fontWeight: FontWeight.bold,
+                                 fontSize: 14,
+                               ),
+@@ -370,62 +373,54 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
+     );
+   }
+ 
+-  Widget _buildStat(String value, String label) {
++  Widget _buildStat(String value, String label, ColorScheme colorScheme, TextTheme textTheme) {
+     return Column(
+       children: [
+-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.8))),
++        Text(value, style: textTheme.titleMedium?.copyWith(color: colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
++        Text(label, style: textTheme.bodySmall?.copyWith(color: colorScheme.onPrimary.withOpacity(0.8))),
+       ],
+     );
+   }
+ 
+-  Widget _buildInfoTile({required IconData icon, required String text, required bool isDark}) {
+-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+-    final textColor = isDark ? Colors.white : Colors.black;
+-    final iconColor = isDark ? Colors.grey[400] : Colors.grey.shade700;
+-
++  Widget _buildInfoTile({required IconData icon, required String text, required ColorScheme colorScheme, required TextTheme textTheme}) {
+     return Card(
+       margin: const EdgeInsets.only(bottom: 8),
+-      color: cardColor,
++      color: colorScheme.surface,
+       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+       child: ListTile(
+-        leading: Icon(icon, color: iconColor),
+-        title: Text(text, style: TextStyle(color: textColor)),
++        leading: Icon(icon, color: colorScheme.primary),
++        title: Text(text, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
+       ),
+     );
+   }
+ 
+-  Widget _buildActionTile({required BuildContext context, required IconData icon, required String text, Color? color, required VoidCallback onTap, required bool isDark}) {
+-    final textColor = color ?? (isDark ? Colors.white : Colors.black);
+-    final iconColor = color ?? (isDark ? Colors.white : Theme.of(context).iconTheme.color);
++  Widget _buildActionTile({required BuildContext context, required IconData icon, required String text, Color? color, required VoidCallback onTap, required ColorScheme colorScheme, required TextTheme textTheme}) {
++    final textColor = color ?? colorScheme.onSurface;
++    final iconColor = color ?? colorScheme.primary;
+ 
+     return ListTile(
+       leading: Icon(icon, color: iconColor),
+-      title: Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
++      title: Text(text, style: textTheme.bodyMedium?.copyWith(color: textColor, fontWeight: FontWeight.w500)),
+       onTap: onTap,
+     );
+   }
+ 
+-  Widget _buildSettingItem({required IconData icon, required String title, required Widget trailing, required bool isDark}) {
+-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+-    final textColor = isDark ? Colors.white : Colors.black;
+-    final iconColor = isDark ? Colors.grey[400] : Colors.grey.shade700;
+-
++  Widget _buildSettingItem({required IconData icon, required String title, required Widget trailing, required ColorScheme colorScheme, required TextTheme textTheme}) {
+     return Card(
+       margin: const EdgeInsets.only(bottom: 12),
+-      color: cardColor,
++      color: colorScheme.surface,
+       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+       child: Padding(
+         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+         child: Row(
+           children: [
+-            Icon(icon, color: iconColor),
++            Icon(icon, color: colorScheme.primary),
+             const SizedBox(width: 16),
+-            Expanded(child: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: textColor))),
++            Expanded(child: Text(title, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500, color: colorScheme.onSurface))),
+             trailing,
+           ],
+         ),
+       ),
+     );
+   }
+-} // <--- Dấu ngoặc quan trọng kết thúc class PreferencesSheet
+\ No newline at end of file
++}
+\ No newline at end of file
+diff --git a/lib/l10n/app_localizations.dart b/lib/l10n/app_localizations.dart
+index 4c42bb7..77be0f9 100644
+--- a/lib/l10n/app_localizations.dart
++++ b/lib/l10n/app_localizations.dart
+@@ -128,6 +128,24 @@ class AppLocalizations {
+       'version': 'Skedule v1.0.0',
+       'app_name': 'Skedule',
+       'notes': 'Notes',
++      'add_event': 'Add Event',
++      'event_type': 'Event Type',
++      'custom_type_name': 'Custom type name (e.g. Gym)',
++      'title': 'Title',
++      'reminder': 'Reminder',
++      'no_reminder': 'No reminder',
++      'reminder_15min': '15 minutes before',
++      'reminder_1hour': '1 hour before',
++      'reminder_custom_time': 'Pick specific time...',
++      'priority': 'Priority',
++      'enter_tag': 'Enter Tag (then press +)',
++      'checklist': 'Checklist',
++      'add_checklist_item': 'Add checklist item...',
++      'description': 'Description',
++      'note_hint': 'Note',
++      'save_event': 'Save Event',
++      'account_tab': 'Account',
++      'settings_tab': 'Settings',
+     },
+     'vi': {
+       'dashboard': 'Trang chủ',
+@@ -253,6 +271,24 @@ class AppLocalizations {
+       'version': 'Skedule v1.0.0',
+       'app_name': 'Skedule',
+       'notes': 'Ghi chú',
++      'add_event': 'Thêm sự kiện mới',
++      'event_type': 'Loại sự kiện',
++      'custom_type_name': 'Tên loại tùy chỉnh (VD: Gym)',
++      'title': 'Tiêu đề',
++      'reminder': 'Nhắc nhở',
++      'no_reminder': 'Không nhắc',
++      'reminder_15min': 'Trước 15 phút',
++      'reminder_1hour': 'Trước 1 giờ',
++      'reminder_custom_time': 'Chọn giờ cụ thể...',
++      'priority': 'Độ ưu tiên',
++      'enter_tag': 'Nhập Tag (Rồi bấm +)',
++      'checklist': 'Checklist',
++      'add_checklist_item': 'Thêm việc nhỏ...',
++      'description': 'Mô tả',
++      'note_hint': 'Ghi chú (Note)',
++      'save_event': 'Lưu sự kiện',
++      'account_tab': 'Tài khoản',
++      'settings_tab': 'Cài đặt',
+     },
+   };
+ 
+diff --git a/lib/theme/app_theme.dart b/lib/theme/app_theme.dart
+new file mode 100644
+index 0000000..8878b7a
+--- /dev/null
++++ b/lib/theme/app_theme.dart
+@@ -0,0 +1,87 @@
++import 'package:flutter/material.dart';
++
++class AppColors {
++  // Brand & Accent
++  static const Color primaryBlue = Color(0xFF455A75); // Đậm hơn accentBlue
++  static const Color accentBlue = Color(0xFF7E97B8);
++
++  // Light theme
++  static const Color scaffoldBg = Color(0xFFDDE3ED);
++  static const Color cardBg = Colors.white;
++  static const Color textDark = Color(0xFF2D3142);
++  static const Color textLight = Color(0xFF9094A6);
++
++  // Event/Task colors
++  static const Color work = Color(0xFFFF8A00);
++  static const Color classColor = Color(0xFFA155FF);
++  static const Color deadline = Color(0xFFFF4B4B);
++  static const Color task = Color(0xFF00C566);
++  static const Color workshift = Color(0xFF00B8D9);
++  static const Color todayChip = Color(0xFFE9EDF5);
++  static const Color scheduleBlue = Color(0xFF3B82F6);
++
++  // Dark theme
++  static const Color scaffoldBgDark = Color(0xFF121212);
++  static const Color cardBgDark = Color(0xFF1E1E1E);
++  static const Color textDarkDark = Color(0xFFE0E0E0);
++  static const Color textLightDark = Color(0xFFA0A0A0);
++}
++
++class AppTheme {
++  static ThemeData lightTheme = ThemeData(
++    brightness: Brightness.light,
++    scaffoldBackgroundColor: AppColors.scaffoldBg,
++    cardColor: AppColors.cardBg,
++    primaryColor: AppColors.primaryBlue,
++    colorScheme: ColorScheme.light(
++      primary: AppColors.primaryBlue,
++      secondary: AppColors.accentBlue,
++      surface: AppColors.cardBg,
++      background: AppColors.scaffoldBg,
++      onSurface: AppColors.textDark,
++      onPrimary: Colors.white,
++      onSecondary: Colors.white,
++      outline: Colors.grey.shade300,
++      outlineVariant: Colors.grey.shade200,
++      // Custom: you can add more if needed
++    ),
++    inputDecorationTheme: InputDecorationTheme(
++      fillColor: Colors.grey[50],
++      labelStyle: TextStyle(color: Colors.grey[600]),
++      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
++    ),
++    textTheme: const TextTheme(
++      bodyLarge: TextStyle(color: AppColors.textDark),
++      bodyMedium: TextStyle(color: AppColors.textDark),
++      bodySmall: TextStyle(color: AppColors.textLight),
++    ),
++  );
++
++  static ThemeData darkTheme = ThemeData(
++    brightness: Brightness.dark,
++    scaffoldBackgroundColor: AppColors.scaffoldBgDark,
++    cardColor: AppColors.cardBgDark,
++    primaryColor: AppColors.primaryBlue,
++    colorScheme: ColorScheme.dark(
++      primary: AppColors.primaryBlue,
++      secondary: AppColors.accentBlue,
++      surface: AppColors.cardBgDark,
++      background: AppColors.scaffoldBgDark,
++      onSurface: AppColors.textDarkDark,
++      onPrimary: Colors.white,
++      onSecondary: Colors.white,
++      outline: Colors.grey[700]!,
++      outlineVariant: Colors.grey[800]!,
++    ),
++    inputDecorationTheme: InputDecorationTheme(
++      fillColor: const Color(0xFF23272F),
++      labelStyle: TextStyle(color: Colors.grey[400]),
++      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
++    ),
++    textTheme: const TextTheme(
++      bodyLarge: TextStyle(color: AppColors.textDarkDark),
++      bodyMedium: TextStyle(color: AppColors.textDarkDark),
++      bodySmall: TextStyle(color: AppColors.textLightDark),
++    ),
++  );
++}
+diff --git a/pubspec.lock b/pubspec.lock
+index 4471b76..33b872f 100644
+--- a/pubspec.lock
++++ b/pubspec.lock
+@@ -540,10 +540,10 @@ packages:
+     dependency: transitive
+     description:
+       name: meta
+-      sha256: e3641ec5d63ebf0d9b41bd43201a66e3fc79a65db5f61fc181f04cd27aab950c
++      sha256: "23f08335362185a5ea2ad3a4e597f1375e78bce8a040df5c600c8d3552ef2394"
+       url: "https://pub.dev"
+     source: hosted
+-    version: "1.16.0"
++    version: "1.17.0"
+   mime:
+     dependency: transitive
+     description:
+@@ -961,10 +961,10 @@ packages:
+     dependency: transitive
+     description:
+       name: test_api
+-      sha256: "522f00f556e73044315fa4585ec3270f1808a4b186c936e612cab0b565ff1e00"
++      sha256: ab2726c1a94d3176a45960b6234466ec367179b87dd74f1611adb1f3b5fb9d55
+       url: "https://pub.dev"
+     source: hosted
+-    version: "0.7.6"
++    version: "0.7.7"
+   typed_data:
+     dependency: transitive
+     description:
+diff --git a/supabase/functions/payment-vnpay/index.ts b/supabase/functions/payment-vnpay/index.ts
+deleted file mode 100644
+index e69de29..0000000
