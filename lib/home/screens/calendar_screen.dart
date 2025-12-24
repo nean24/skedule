@@ -4,10 +4,9 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
-// Import màn hình chi tiết để điều hướng
 import 'package:skedule/home/screens/event_detail_screen.dart';
 
-// --- BẢNG MÀU CHUẨN THEO THIẾT KẾ ---
+// --- BẢNG MÀU CHUẨN ---
 class AppColors {
   static const Color scaffoldBg = Color(0xFFDDE3ED);
   static const Color cardBg = Colors.white;
@@ -20,10 +19,10 @@ class AppColors {
   static const Color classColor = Color(0xFFA155FF);
   static const Color deadline = Color(0xFFFF4B4B);
   static const Color task = Color(0xFF00C566);
+  static const Color workshift = Color(0xFF00B8D9);
   static const Color todayChip = Color(0xFFE9EDF5);
   static const Color scheduleBlue = Color(0xFF3B82F6);
 
-  // Dark Mode Colors
   static const Color scaffoldBgDark = Color(0xFF121212);
   static const Color cardBgDark = Color(0xFF1E1E1E);
   static const Color textDarkDark = Color(0xFFE0E0E0);
@@ -53,7 +52,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _fetchDatabaseData();
   }
 
+  // --- HÀM LẤY DỮ LIỆU ---
   Future<void> _fetchDatabaseData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     final user = _supabase.auth.currentUser;
     if (user == null) return;
@@ -71,25 +72,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
           final date = DateTime.parse(item['start_time']).toLocal();
           final dayKey = DateTime(date.year, date.month, date.day);
 
-          // Xử lý hiển thị lại màu sắc và loại
-          String displayType = item['type'] ?? 'event';
-          String title = item['title'] ?? '';
-          if (title.startsWith('[Work]')) displayType = 'work';
-          if (title.startsWith('[Class]')) displayType = 'class';
+          final matchingTasks =
+              tasksResponse.where((t) => t['event_id'] == item['id']);
+          final relatedTask =
+              matchingTasks.isNotEmpty ? matchingTasks.first : null;
 
-          newEventsByDay
-              .putIfAbsent(dayKey, () => [])
-              .add({...item, 'type': displayType, 'isTask': false});
-        }
-      }
-
-      for (var item in tasksResponse) {
-        if (item['deadline'] != null) {
-          final date = DateTime.parse(item['deadline']).toLocal();
-          final dayKey = DateTime(date.year, date.month, date.day);
-          newEventsByDay
-              .putIfAbsent(dayKey, () => [])
-              .add({...item, 'isTask': true});
+          newEventsByDay.putIfAbsent(dayKey, () => []).add({
+            ...item,
+            'isTask': ['task', 'deadline'].contains(item['type']),
+            'priority': relatedTask != null ? relatedTask['priority'] : null,
+          });
         }
       }
 
@@ -100,37 +92,668 @@ class _CalendarScreenState extends State<CalendarScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error fetching data: $e');
+      debugPrint('Error: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- LOGIC: SHEET THÊM SỰ KIỆN ---
-  void _showAddEventSheet(BuildContext context,
-      {String? preTitle, String? preType, String? preDesc}) {
-    // ... (Code cũ giữ nguyên, lược bớt để tập trung vào phần hiển thị)
-    // Để giữ code ngắn gọn, tôi không paste lại hàm _showAddEventSheet và _saveEvent ở đây
-    // vì bạn đã có ở phiên bản trước. Nếu cần, bạn có thể giữ nguyên logic cũ.
-    // Tạm thời tôi sẽ hiển thị thông báo "Tính năng đang bảo trì" nếu bạn bấm Add để tránh lỗi code dài.
-    // TỐT NHẤT: Bạn hãy giữ lại hàm _showAddEventSheet và _saveEvent từ file cũ của bạn nhé.
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Vui lòng ghép lại logic Add Event từ file cũ')));
+  // ===========================================================================
+  // --- FORM THÊM MỚI ---
+  // ===========================================================================
+  Future<void> _showAddEventSheet(BuildContext context,
+      {String? preTitle, String? preType, String? preDesc}) async {
+    final titleController = TextEditingController(text: preTitle ?? '');
+    final descController = TextEditingController(text: preDesc ?? '');
+    final noteController = TextEditingController();
+    final tagController = TextEditingController();
+    final checklistController = TextEditingController();
+
+    DateTime selectedDate = _selectedDay ?? DateTime.now();
+    TimeOfDay startTime = TimeOfDay.now();
+    TimeOfDay endTime =
+        TimeOfDay.now().replacing(hour: TimeOfDay.now().hour + 1);
+
+    String selectedType = preType ?? 'Task';
+    String selectedPriority = 'medium';
+    List<String> selectedTags = [];
+    List<String> checklistItems = [];
+    DateTime? reminderTime;
+    String? customTypeInput;
+
+    final List<String> eventTypes = [
+      'Task',
+      'Schedule',
+      'Workshift',
+      'Deadline',
+      'Custom'
+    ];
+    final List<String> priorities = ['low', 'medium', 'high'];
+
+    final bool? shouldRefresh = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            bool showTaskFields =
+                ['Task', 'Deadline', 'Custom'].contains(selectedType);
+            bool showTagInput = selectedType == 'Custom';
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.9,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                  20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                        child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(2)))),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Thêm sự kiện mới',
+                            style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textDark)),
+                        Icon(_getIconForType(selectedType),
+                            color: AppColors.primaryBlue, size: 28),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 1. Loại sự kiện
+                    DropdownButtonFormField<String>(
+                      value: eventTypes.contains(selectedType)
+                          ? selectedType
+                          : 'Task',
+                      decoration:
+                          _inputDecoration('Loại sự kiện', Icons.category),
+                      items: eventTypes
+                          .map(
+                              (t) => DropdownMenuItem(value: t, child: Text(t)))
+                          .toList(),
+                      onChanged: (val) =>
+                          setModalState(() => selectedType = val!),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Custom Type Input
+                    if (showTagInput) ...[
+                      TextField(
+                        decoration: _inputDecoration(
+                            'Tên loại tùy chỉnh (VD: Gym)', Icons.edit),
+                        onChanged: (val) => customTypeInput = val,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 2. Tiêu đề
+                    TextField(
+                      controller: titleController,
+                      decoration: _inputDecoration('Tiêu đề', Icons.title),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 3. Thời gian
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030));
+                              if (picked != null)
+                                setModalState(() => selectedDate = picked);
+                            },
+                            // FIX UI OVERFLOW: Sử dụng hàm _buildTimeBox mới
+                            child: _buildTimeBox(Icons.calendar_today,
+                                DateFormat('dd/MM/yyyy').format(selectedDate)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final time = await showTimePicker(
+                                  context: context, initialTime: startTime);
+                              if (time != null)
+                                setModalState(() => startTime = time);
+                            },
+                            child: _buildTimeBox(
+                                Icons.access_time, startTime.format(context)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final time = await showTimePicker(
+                                  context: context, initialTime: endTime);
+                              if (time != null)
+                                setModalState(() => endTime = time);
+                            },
+                            child: _buildTimeBox(Icons.access_time_filled,
+                                endTime.format(context)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 4. Nhắc nhở
+                    if (showTaskFields) ...[
+                      DropdownButtonFormField<int>(
+                        value: reminderTime == null ? 0 : 1,
+                        decoration: _inputDecoration(
+                            'Nhắc nhở', Icons.notifications,
+                            iconColor: Colors.purple),
+                        items: const [
+                          DropdownMenuItem(value: 0, child: Text('Không nhắc')),
+                          DropdownMenuItem(
+                              value: 15, child: Text('Trước 15 phút')),
+                          DropdownMenuItem(
+                              value: 60, child: Text('Trước 1 giờ')),
+                          DropdownMenuItem(
+                              value: 1, child: Text('Chọn giờ cụ thể...')),
+                        ],
+                        onChanged: (val) async {
+                          if (val == 0) {
+                            setModalState(() => reminderTime = null);
+                          } else if (val == 1) {
+                            final pickedDate = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime(2030));
+                            if (pickedDate != null) {
+                              final pickedTime = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.now());
+                              if (pickedTime != null) {
+                                setModalState(() {
+                                  reminderTime = DateTime(
+                                      pickedDate.year,
+                                      pickedDate.month,
+                                      pickedDate.day,
+                                      pickedTime.hour,
+                                      pickedTime.minute);
+                                });
+                              }
+                            }
+                          } else {
+                            final startDt = DateTime(
+                                selectedDate.year,
+                                selectedDate.month,
+                                selectedDate.day,
+                                startTime.hour,
+                                startTime.minute);
+                            setModalState(() => reminderTime =
+                                startDt.subtract(Duration(minutes: val!)));
+                          }
+                        },
+                      ),
+                      if (reminderTime != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, left: 12),
+                          child: Text(
+                            "⏰ Sẽ nhắc lúc: ${DateFormat('dd/MM HH:mm').format(reminderTime!)}",
+                            style: const TextStyle(
+                                color: Colors.purple,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 5. Priority & Tags
+                    if (showTaskFields) ...[
+                      DropdownButtonFormField<String>(
+                        value: selectedPriority,
+                        decoration: _inputDecoration('Độ ưu tiên', Icons.flag,
+                            iconColor: Colors.orange),
+                        items: priorities
+                            .map((p) => DropdownMenuItem(
+                                value: p, child: Text(p.toUpperCase())))
+                            .toList(),
+                        onChanged: (val) =>
+                            setModalState(() => selectedPriority = val!),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 6. Custom Tags Input
+                    if (showTaskFields) ...[
+                      TextField(
+                        controller: tagController,
+                        decoration: _inputDecoration(
+                                'Nhập Tag (Rồi bấm +)', Icons.label)
+                            .copyWith(
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.add_circle,
+                                color: AppColors.primaryBlue),
+                            onPressed: () {
+                              if (tagController.text.isNotEmpty) {
+                                setModalState(() {
+                                  selectedTags.add(tagController.text.trim());
+                                  tagController.clear();
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        onSubmitted: (val) {
+                          if (val.isNotEmpty) {
+                            setModalState(() {
+                              selectedTags.add(val.trim());
+                              tagController.clear();
+                            });
+                          }
+                        },
+                      ),
+                      if (selectedTags.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Wrap(
+                            spacing: 8,
+                            children: selectedTags
+                                .map((t) => Chip(
+                                      label: Text(t),
+                                      backgroundColor:
+                                          AppColors.accentBlue.withOpacity(0.2),
+                                      onDeleted: () => setModalState(
+                                          () => selectedTags.remove(t)),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 7. Checklist
+                    if (showTaskFields) ...[
+                      const Divider(),
+                      const Text('Checklist',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, color: Colors.grey)),
+                      ...checklistItems.asMap().entries.map((entry) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.check_box_outline_blank,
+                                size: 20),
+                            title: Text(entry.value),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close,
+                                  color: Colors.red, size: 20),
+                              onPressed: () => setModalState(
+                                  () => checklistItems.removeAt(entry.key)),
+                            ),
+                          )),
+                      TextField(
+                        controller: checklistController,
+                        decoration: _inputDecoration(
+                                'Thêm việc nhỏ...', Icons.playlist_add)
+                            .copyWith(
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.add,
+                                color: AppColors.primaryBlue),
+                            onPressed: () {
+                              if (checklistController.text.isNotEmpty) {
+                                setModalState(() {
+                                  checklistItems
+                                      .add(checklistController.text.trim());
+                                  checklistController.clear();
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        onSubmitted: (val) {
+                          if (val.isNotEmpty) {
+                            setModalState(() {
+                              checklistItems.add(val.trim());
+                              checklistController.clear();
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // 8. Mô tả & Note
+                    const Divider(),
+                    TextField(
+                      controller: descController,
+                      maxLines: 2,
+                      decoration: _inputDecoration('Mô tả', Icons.description),
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextField(
+                      controller: noteController,
+                      maxLines: 2,
+                      decoration: _inputDecoration(
+                          'Ghi chú (Note)', Icons.note_alt,
+                          fillColor: AppColors.scaffoldBg.withOpacity(0.5)),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Nút Lưu
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryBlue,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15)),
+                        ),
+                        onPressed: () async {
+                          if (titleController.text.isEmpty) return;
+
+                          if (selectedType == 'Custom' &&
+                              customTypeInput != null &&
+                              customTypeInput!.isNotEmpty) {
+                            selectedTags.add(customTypeInput!);
+                          }
+
+                          await _saveEventToDB(
+                            title: titleController.text,
+                            desc: descController.text,
+                            note: noteController.text,
+                            uiType: selectedType,
+                            priority: selectedPriority,
+                            tags: selectedTags,
+                            date: selectedDate,
+                            start: startTime,
+                            end: endTime,
+                            checklist: checklistItems,
+                            reminderAt: reminderTime,
+                          );
+                          if (mounted) Navigator.pop(context, true);
+                        },
+                        child: const Text('Lưu sự kiện',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (shouldRefresh == true) _fetchDatabaseData();
   }
 
-  // --- LOGIC: SHEET TEMPLATES ---
+  // --- LOGIC LƯU DB (ĐÃ SỬA LỖI DB & RLS) ---
+  Future<void> _saveEventToDB({
+    required String title,
+    required String desc,
+    required String note,
+    required String uiType,
+    required String priority,
+    required List<String> tags,
+    required DateTime date,
+    required TimeOfDay start,
+    required TimeOfDay end,
+    required List<String> checklist,
+    required DateTime? reminderAt,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    final startDt =
+        DateTime(date.year, date.month, date.day, start.hour, start.minute);
+    final endDt =
+        DateTime(date.year, date.month, date.day, end.hour, end.minute);
+
+    String dbType = 'task';
+    bool shouldCreateTask = false;
+
+    switch (uiType.toLowerCase()) {
+      case 'schedule':
+        dbType = 'schedule';
+        break;
+      case 'workshift':
+        dbType = 'workshift';
+        break;
+      case 'deadline':
+        dbType = 'deadline';
+        shouldCreateTask = true;
+        break;
+      case 'task':
+        dbType = 'task';
+        shouldCreateTask = true;
+        break;
+      case 'custom':
+        dbType = 'task';
+        shouldCreateTask = true;
+        break;
+    }
+
+    try {
+      // 1. Tạo Event
+      final resEvent = await _supabase
+          .from('events')
+          .insert({
+            'user_id': user.id,
+            'title': title,
+            'description': desc,
+            'type': dbType,
+            'start_time': startDt.toIso8601String(),
+            'end_time': endDt.toIso8601String(),
+          })
+          .select('id')
+          .single();
+      final eventId = resEvent['id'];
+
+      // 2. Tạo Note
+      if (note.isNotEmpty) {
+        await _supabase
+            .from('notes')
+            .insert({'user_id': user.id, 'content': note, 'event_id': eventId});
+      }
+
+      // 3. Tạo Task (VÀ LƯU REMINDER NẾU CÓ TASK)
+      if (shouldCreateTask) {
+        final resTask = await _supabase
+            .from('tasks')
+            .insert({
+              'user_id': user.id,
+              'event_id': eventId,
+              'title': title,
+              'description': desc,
+              'priority': priority,
+              'status': 'todo',
+              'deadline': endDt.toIso8601String(),
+            })
+            .select('id')
+            .single();
+        final taskId = resTask['id'];
+
+        if (reminderAt != null && taskId != null) {
+          await _supabase.from('reminders').insert({
+            'user_id': user.id,
+            'event_id': eventId,
+            'task_id': taskId,
+            'remind_time': reminderAt.toIso8601String(),
+            'status': 'pending',
+          });
+        }
+
+        // --- XỬ LÝ LỖI RLS KHI LƯU TAGS ---
+        if (tags.isNotEmpty) {
+          try {
+            for (String tagName in tags) {
+              var tagRes = await _supabase
+                  .from('tags')
+                  .select('id')
+                  .eq('name', tagName)
+                  .eq('user_id', user.id)
+                  .maybeSingle();
+              dynamic tagId = tagRes != null
+                  ? tagRes['id']
+                  : (await _supabase
+                      .from('tags')
+                      .insert({'user_id': user.id, 'name': tagName})
+                      .select('id')
+                      .single())['id'];
+
+              await _supabase
+                  .from('task_tags')
+                  .insert({'task_id': taskId, 'tag_id': tagId});
+            }
+          } catch (tagError) {
+            // Chỉ log lỗi tag, không chặn lưu sự kiện chính
+            debugPrint("Lỗi lưu Tag (Có thể do chưa setup RLS): $tagError");
+          }
+        }
+
+        if (checklist.isNotEmpty) {
+          final checklistData = checklist
+              .map((item) =>
+                  {'task_id': taskId, 'item_text': item, 'is_done': false})
+              .toList();
+          await _supabase.from('checklist_items').insert(checklistData);
+        }
+      }
+    } catch (e) {
+      debugPrint('DB Error: $e');
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
+  }
+
+  // --- HELPER WIDGETS ---
+  InputDecoration _inputDecoration(String label, IconData icon,
+      {Color? iconColor, Color? fillColor}) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: iconColor ?? Colors.grey),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+      fillColor: fillColor ?? Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
+
+  // --- SỬA LỖI UI OVERFLOW: Dùng Flexible thay vì Text thường ---
+  Widget _buildTimeBox(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'Workshift':
+        return Icons.badge;
+      case 'Schedule':
+        return Icons.calendar_month;
+      case 'Task':
+        return Icons.check_circle_outline;
+      case 'Deadline':
+        return Icons.timer_off;
+      case 'Custom':
+        return Icons.edit_note;
+      default:
+        return Icons.event;
+    }
+  }
+
+  // ... (Phần _showTemplatesSheet và _buildTemplateItem giữ nguyên như cũ) ...
   void _showTemplatesSheet(BuildContext context) {
-    // ... (Tương tự, giữ logic cũ)
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Vui lòng ghép lại logic Template từ file cũ')));
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 300,
+        decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Chọn mẫu nhanh',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            _buildTemplateItem(context, 'Họp Team', Icons.groups, 'Schedule',
+                'Họp tiến độ dự án'),
+            _buildTemplateItem(context, 'Tập Gym', Icons.fitness_center, 'Task',
+                'Ngày tập chân'),
+            _buildTemplateItem(
+                context, 'Ca Sáng', Icons.badge, 'Workshift', '8:00 - 12:00'),
+          ],
+        ),
+      ),
+    );
   }
 
-  // Tôi sẽ tập trung vào phần render giao diện Calendar và List Event bên dưới
+  Widget _buildTemplateItem(BuildContext context, String title, IconData icon,
+      String type, String desc) {
+    return ListTile(
+      leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+              color: AppColors.accentBlue.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8)),
+          child: Icon(icon, color: AppColors.primaryBlue)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(desc),
+      onTap: () {
+        Navigator.pop(context);
+        _showAddEventSheet(context,
+            preTitle: title, preType: type, preDesc: desc);
+      },
+    );
+  }
 
+  // --- GIAO DIỆN CHÍNH ---
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
     final isDark = settings.isDarkMode;
-
     final bgColor = isDark ? AppColors.scaffoldBgDark : AppColors.scaffoldBg;
     final cardColor = isDark ? AppColors.cardBgDark : AppColors.cardBg;
     final textColor = isDark ? AppColors.textDarkDark : AppColors.textDark;
@@ -161,7 +784,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           const SizedBox(height: 16),
                           _buildModeToggle(),
                           const SizedBox(height: 24),
-                          // Danh sách sự kiện (Đã cập nhật logic click)
                           _buildScheduleListFromData(
                               settings, cardColor, textColor, subTextColor),
                           const SizedBox(height: 30),
@@ -208,9 +830,63 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
-          // Nút bấm (Bạn có thể giữ logic cũ của bạn ở đây)
           const SizedBox(width: 8),
+          Row(
+            children: [
+              _buildActionBtn(
+                Icons.access_time,
+                settings.strings.translate('templates'),
+                isOutlined: true,
+                textColor: subTextColor,
+                onTap: () => _showTemplatesSheet(context),
+              ),
+              const SizedBox(width: 6),
+              _buildActionBtn(
+                Icons.add,
+                'Add',
+                isOutlined: false,
+                textColor: Colors.white,
+                onTap: () async {
+                  await _showAddEventSheet(context);
+                },
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionBtn(IconData icon, String label,
+      {required bool isOutlined,
+      required Color textColor,
+      VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isOutlined ? Colors.transparent : AppColors.accentBlue,
+          borderRadius: BorderRadius.circular(20),
+          border:
+              isOutlined ? Border.all(color: textColor.withOpacity(0.4)) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: textColor),
+            const SizedBox(width: 4),
+            // SỬA LỖI OVERFLOW HEADER BUTTONS
+            Flexible(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: textColor),
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -333,10 +1009,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 markers.add(AppColors.task);
               else {
                 final type = e['type'].toString().toLowerCase();
-                if (type == 'work')
+                if (type == 'work' || type == 'workshift')
                   markers.add(AppColors.work);
                 else if (type == 'class')
                   markers.add(AppColors.classColor);
+                else if (type == 'schedule')
+                  markers.add(AppColors.scheduleBlue);
                 else
                   markers.add(AppColors.deadline);
               }
@@ -447,24 +1125,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  // --- LOGIC HIỂN THỊ DANH SÁCH SỰ KIỆN (QUAN TRỌNG) ---
   Widget _buildScheduleListFromData(SettingsProvider settings, Color cardColor,
       Color textColor, Color subTextColor) {
-    // 1. Chuẩn hóa ngày đang chọn về nửa đêm để so sánh chính xác
-    final selectedDateNormalized =
-        DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day);
-
-    // 2. Lấy danh sách ngày có sự kiện
     final sortedDays = _eventsByDay.keys.toList()..sort();
-
-    // 3. Lọc: Chỉ lấy những ngày >= ngày đang chọn (Bao gồm cả quá khứ nếu chọn ngày quá khứ)
-    // Điều này tạo hiệu ứng "Agenda": Hiển thị lịch bắt đầu từ ngày chọn trở đi.
     final filteredDays = sortedDays
-        .where((day) => !day.isBefore(selectedDateNormalized))
-        .take(5) // Lấy tối đa 5 ngày tiếp theo để hiển thị
+        .where((day) =>
+            day.isAfter(_selectedDay!.subtract(const Duration(days: 1))))
+        .take(3)
         .toList();
 
-    // 4. Nếu không có dữ liệu
     if (filteredDays.isEmpty) {
       return Container(
         width: double.infinity,
@@ -477,7 +1146,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       );
     }
 
-    // 5. Render danh sách
     return Container(
       decoration: BoxDecoration(
           color: cardColor, borderRadius: BorderRadius.circular(20)),
@@ -496,14 +1164,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Color color = AppColors.task;
                   if (e['isTask'] == false) {
                     final type = e['type'].toString().toLowerCase();
-                    if (type == 'work')
+                    if (type == 'work' || type == 'workshift')
                       color = AppColors.work;
                     else if (type == 'class')
                       color = AppColors.classColor;
+                    else if (type == 'schedule')
+                      color = AppColors.scheduleBlue;
                     else
                       color = AppColors.deadline;
                   }
-                  // TRUYỀN TOÀN BỘ OBJECT SỰ KIỆN VÀO HÀM BUILD
+                  // TRUYỀN FULL OBJECT SỰ KIỆN VÀO ĐÂY ĐỂ CÓ THỂ CLICK
                   return _buildEvent(e, color, textColor);
                 }).toList(),
                 textColor,
@@ -546,44 +1216,47 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  // --- CẬP NHẬT: CHO PHÉP BẤM VÀO SỰ KIỆN ---
+  // --- SỬA LỖI UI OVERFLOW VÀ ENABLE CLICK ---
   Widget _buildEvent(Map<String, dynamic> event, Color color, Color textColor) {
     return InkWell(
-      // Thêm hiệu ứng bấm
       onTap: () async {
-        // Điều hướng sang trang chi tiết
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EventDetailScreen(
-                data: event, isTask: event['isTask'] ?? false),
-          ),
-        );
-
-        // Nếu có thay đổi (xóa, cập nhật), load lại dữ liệu
-        if (result == true) {
-          _fetchDatabaseData();
+        try {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EventDetailScreen(
+                  data: event, isTask: event['isTask'] ?? false),
+            ),
+          );
+          if (result == true) _fetchDatabaseData();
+        } catch (e) {
+          debugPrint("Error navigating or detail screen not found: $e");
         }
       },
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(vertical: 6), // Tăng padding để dễ bấm
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
             Container(
-                width: 8,
-                height: 8,
-                decoration:
-                    BoxDecoration(color: color, shape: BoxShape.circle)),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
             const SizedBox(width: 10),
+            // FIX LỖI OVERFLOW: Dùng Expanded để Text tự co giãn
             Expanded(
-                child: Text(event['title'] ?? 'Untitled',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        color: textColor),
-                    overflow: TextOverflow.ellipsis)),
-            // Thêm mũi tên nhỏ để gợi ý là có thể bấm được
+              child: Text(
+                event['title'] ?? 'Untitled',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  color: textColor,
+                ),
+                overflow: TextOverflow.ellipsis, // Cắt bớt nếu quá dài
+                maxLines: 1,
+              ),
+            ),
+            const SizedBox(width: 8),
             Icon(Icons.chevron_right,
                 size: 16, color: Colors.grey.withOpacity(0.5)),
           ],
