@@ -14,7 +14,9 @@ class TaskCard extends StatelessWidget {
   final IconData icon;
   final Color borderColor;
   final bool isTask;
-  final VoidCallback? onTap; // <--- THÊM DÒNG NÀY
+  final bool isDone; // <--- 1. THÊM BIẾN NÀY
+  final VoidCallback? onTap;
+  final VoidCallback? onCheck;
 
   const TaskCard({
     super.key,
@@ -29,7 +31,9 @@ class TaskCard extends StatelessWidget {
     required this.icon,
     required this.borderColor,
     this.isTask = false,
-    this.onTap, // <--- THÊM DÒNG NÀY
+    this.isDone = false, // <--- 2. Mặc định là false
+    this.onTap,
+    this.onCheck,
   });
 
   @override
@@ -50,7 +54,6 @@ class TaskCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: borderColorSide),
       ),
-      // BỌC TRONG INKWELL ĐỂ BẮT SỰ KIỆN TAP
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -66,18 +69,30 @@ class TaskCard extends StatelessWidget {
           child: Row(
             children: [
               if (isTask)
-                // Checkbox này chỉ để trang trí, bấm vào card sẽ vào chi tiết xử lý
-                Checkbox(
-                    value: false,
+                Transform.scale(
+                  scale: 1.1,
+                  child: Checkbox(
+                    value: isDone, // <--- 3. Liên kết với biến isDone
+                    activeColor: Colors.grey, // Màu khi đã check (mờ đi)
+                    checkColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    side: BorderSide(
+                        color: isDark ? Colors.grey : Colors.black54,
+                        width: 1.5),
                     onChanged: (val) {
-                      if (onTap != null) onTap!();
+                      if (onCheck != null) onCheck!();
                     },
-                    visualDensity: VisualDensity.compact)
+                    visualDensity: VisualDensity.compact,
+                  ),
+                )
               else
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Icon(icon, color: iconColor, size: 20),
+                  child: Icon(icon, color: iconColor, size: 24),
                 ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,9 +101,15 @@ class TaskCard extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: textColor),
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            isDone ? Colors.grey : textColor, // Mờ đi nếu xong
+                        // 4. GẠCH NGANG MÀU ĐỎ NẾU ISDONE = TRUE
+                        decoration: isDone ? TextDecoration.lineThrough : null,
+                        decorationColor: Colors.red,
+                        decorationThickness: 2.0,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -147,7 +168,7 @@ class TaskCard extends StatelessWidget {
 
   Widget _buildTag(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(6),
