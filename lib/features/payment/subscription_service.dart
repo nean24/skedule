@@ -3,11 +3,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SubscriptionService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  /// Kiểm tra xem user có gói Premium hợp lệ không
   Future<bool> isPremium() async {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) return false;
 
+      // Lấy thông tin subscription mới nhất
       final response = await _supabase
           .from('subscriptions')
           .select('status, end_date')
@@ -19,19 +21,28 @@ class SubscriptionService {
       final status = response['status'] as String?;
       final endDateStr = response['end_date'] as String?;
 
-      // Check status and date regardless of plan name
+      // Logic: Phải có status là 'active' VÀ ngày hết hạn phải sau thời điểm hiện tại
       if (status == 'active' && endDateStr != null) {
-        final endDate = DateTime.parse(endDateStr);
+        final endDate = DateTime.parse(endDateStr).toLocal();
         return endDate.isAfter(DateTime.now());
       }
 
       return false;
     } catch (e) {
-      // Log error or handle it silently
+      // Có thể log lỗi nếu cần thiết
       return false;
     }
   }
 
+  /// Hàm kiểm tra quyền sử dụng AI (Hard Gate)
+  /// Hiện tại logic là: Chỉ Premium mới được dùng.
+  /// Tách riêng hàm này để sau này nếu bạn đổi ý (ví dụ cho dùng thử 3 lần lưu local)
+  /// thì chỉ cần sửa ở đây mà không ảnh hưởng logic isPremium gốc.
+  Future<bool> canUseAi() async {
+    return await isPremium();
+  }
+
+  /// Lấy tên gói để hiển thị (VD: "1 Year", "Premium")
   Future<String?> getActivePlanName() async {
     try {
       final user = _supabase.auth.currentUser;
@@ -50,13 +61,13 @@ class SubscriptionService {
       final startDateStr = response['start_date'] as String?;
       final endDateStr = response['end_date'] as String?;
 
-      // Check if subscription is active and not expired
       if (status == 'active' && endDateStr != null) {
-        final endDate = DateTime.parse(endDateStr);
+        final endDate = DateTime.parse(endDateStr).toLocal();
+
         if (endDate.isAfter(DateTime.now())) {
-          // Infer from dates regardless of plan name
+          // Cố gắng đoán tên gói dựa trên khoảng thời gian
           if (startDateStr != null) {
-            final startDate = DateTime.parse(startDateStr);
+            final startDate = DateTime.parse(startDateStr).toLocal();
             final duration = endDate.difference(startDate).inDays;
 
             if (duration >= 360) return '1 Year';
@@ -64,8 +75,9 @@ class SubscriptionService {
             if (duration >= 25) return '1 Month';
           }
 
-          // Fallback to capitalizing the plan name or returning it as is
+          // Nếu không đoán được, format lại tên plan từ DB
           if (plan != null && plan.isNotEmpty) {
+            // Viết hoa chữ cái đầu (premium -> Premium)
             return plan[0].toUpperCase() + plan.substring(1);
           }
           return 'Premium';
@@ -78,6 +90,7 @@ class SubscriptionService {
     }
   }
 
+  /// Lấy ngày hết hạn để hiển thị
   Future<DateTime?> getSubscriptionEndDate() async {
     try {
       final user = _supabase.auth.currentUser;
@@ -95,7 +108,7 @@ class SubscriptionService {
       final endDateStr = response['end_date'] as String?;
 
       if (status == 'active' && endDateStr != null) {
-        final endDate = DateTime.parse(endDateStr);
+        final endDate = DateTime.parse(endDateStr).toLocal();
         if (endDate.isAfter(DateTime.now())) {
           return endDate;
         }

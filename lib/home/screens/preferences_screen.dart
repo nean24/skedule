@@ -1,5 +1,3 @@
-// lib/home/screens/preferences_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer';
@@ -22,13 +20,13 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
   bool _isPremium = false;
   String? _planName;
   bool _isLoading = true;
-  String _selectedTab = 'Account'; // Track selected tab
+  String _selectedTab =
+      'Account'; // Giữ nguyên key cũ để logic màu hoạt động đúng
 
   @override
   void initState() {
     super.initState();
     _fetchSubscriptionStatus();
-    // Settings are now loaded by SettingsProvider in main.dart
   }
 
   Future<void> _fetchSubscriptionStatus() async {
@@ -43,25 +41,19 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     }
   }
 
-  // --- HÀM LOGOUT ĐÃ ĐƯỢC VIẾT LẠI, ĐƠN GIẢN VÀ ĐÚNG ĐẮN ---
+  // --- LOGIC ĐĂNG XUẤT (ĐÃ FIX) ---
   Future<void> _signOut(BuildContext context) async {
     try {
-      // 1. Đóng bottom sheet (tùy chọn, nhưng nên có để UI mượt hơn)
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // 2. Chỉ cần gọi signOut. AuthGate sẽ tự động phát hiện sự kiện
-      // và chuyển người dùng về màn hình LoginScreen.
+      if (context.mounted) Navigator.of(context).pop(); // Đóng sheet trước
       await _supabase.auth.signOut();
-
     } catch (e) {
       log('Error during sign out: ${e.toString()}', error: e);
       if (context.mounted) {
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${settings.strings.translate('error_sign_out')}: ${e.toString()}.'),
+            content: Text(
+                '${settings.strings.translate('error_sign_out')}: ${e.toString()}.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -69,19 +61,27 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     }
   }
 
-  // --- GIAO DIỆN CHÍNH ---
+  // --- GIAO DIỆN CHÍNH (MÀU CŨ) ---
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
     final isDark = settings.isDarkMode;
+
+    // --- KHÔI PHỤC MÀU CŨ ---
     final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
     final subTextColor = isDark ? Colors.grey[400] : Colors.grey;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final iconColor = isDark ? Colors.white : Colors.black;
+    // ------------------------
 
     final user = _supabase.auth.currentUser;
     final userEmail = user?.email ?? 'N/A';
-    final userName = user?.userMetadata?['name'] ?? user?.email?.split('@').first ?? 'Người dùng';
-    final userInitials = userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U';
+    final userName = user?.userMetadata?['name'] ??
+        user?.email?.split('@').first ??
+        'Người dùng';
+    final userInitials =
+        userName.isNotEmpty ? userName.substring(0, 1).toUpperCase() : 'U';
 
     String memberSince = 'N/A';
     if (user?.createdAt != null) {
@@ -100,17 +100,27 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context, settings),
+          _buildHeader(context, settings, textColor, iconColor),
           const SizedBox(height: 16),
-          _buildTabs(settings),
+          _buildTabs(isDark),
           const SizedBox(height: 24),
-          
           if (_selectedTab == 'Account') ...[
-            Text(settings.strings.translate('account_info'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
+            Text(settings.strings.translate('account_info'),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: textColor)),
             const SizedBox(height: 16),
+
+            // Card Account (Đã xóa tasks_done & day_streak, giữ màu xanh đặc trưng)
             _buildAccountInfoCard(userInitials, userName, userEmail, settings),
+
             const SizedBox(height: 16),
-            _buildInfoTile(icon: Icons.calendar_today_outlined, text: '${settings.strings.translate('member_since')} $memberSince', isDark: isDark),
+            _buildInfoTile(
+                icon: Icons.calendar_today_outlined,
+                text:
+                    '${settings.strings.translate('member_since')} $memberSince',
+                isDark: isDark),
             const Divider(height: 32),
             _buildActionTile(
               context: context,
@@ -118,12 +128,11 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               text: settings.strings.translate('edit_profile'),
               onTap: () async {
                 final result = await Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen()),
                 );
                 if (result == true && mounted) {
-                  setState(() {
-                    // Trigger rebuild to update user info
-                  });
+                  setState(() {});
                 }
               },
               isDark: isDark,
@@ -137,12 +146,17 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               isDark: isDark,
             ),
           ] else if (_selectedTab == 'Settings') ...[
-            Text(settings.strings.translate('general_settings'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
+            Text(settings.strings.translate('general_settings'),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: textColor)),
             const SizedBox(height: 16),
             _buildSettingItem(
               icon: Icons.language,
               title: settings.strings.translate('language'),
               isDark: isDark,
+              textColor: textColor,
               trailing: DropdownButton<String>(
                 value: settings.language,
                 dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -165,6 +179,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               icon: Icons.dark_mode_outlined,
               title: settings.strings.translate('dark_mode'),
               isDark: isDark,
+              textColor: textColor,
               trailing: Switch(
                 value: settings.isDarkMode,
                 onChanged: (value) {
@@ -177,6 +192,7 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               icon: Icons.access_time,
               title: settings.strings.translate('24_hour_time'),
               isDark: isDark,
+              textColor: textColor,
               trailing: Switch(
                 value: settings.is24HourFormat,
                 onChanged: (value) {
@@ -189,12 +205,14 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               icon: Icons.date_range,
               title: settings.strings.translate('date_format'),
               isDark: isDark,
+              textColor: textColor,
               trailing: DropdownButton<String>(
                 value: settings.dateFormat,
                 dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 style: TextStyle(color: textColor),
                 underline: const SizedBox(),
-                items: ['dd/MM/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd'].map((String value) {
+                items: ['dd/MM/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd']
+                    .map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Text(value),
@@ -208,27 +226,28 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
               ),
             ),
           ],
-
           const SizedBox(height: 32),
-          Center(child: Text(settings.strings.translate('version'), style: TextStyle(color: subTextColor))),
+          Center(
+              child: Text(settings.strings.translate('version'),
+                  style: TextStyle(color: subTextColor))),
           const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  // --- CÁC WIDGET PHỤ (ĐÃ ĐƯA VÀO BÊN TRONG CLASS) ---
-  Widget _buildHeader(BuildContext context, SettingsProvider settings) {
-    final isDark = settings.isDarkMode;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final iconColor = isDark ? Colors.white : Colors.black;
+  // --- CÁC WIDGET PHỤ (GIỮ STYLE CŨ) ---
 
+  Widget _buildHeader(BuildContext context, SettingsProvider settings,
+      Color textColor, Color iconColor) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(Icons.settings_outlined, color: iconColor),
         const SizedBox(width: 8),
-        Text(settings.strings.translate('preferences'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
+        Text(settings.strings.translate('preferences'),
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
         const Spacer(),
         IconButton(
           icon: Icon(Icons.close, color: iconColor),
@@ -238,9 +257,9 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     );
   }
 
-  Widget _buildTabs(SettingsProvider settings) {
-    final isDark = settings.isDarkMode;
-    final backgroundColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200;
+  Widget _buildTabs(bool isDark) {
+    final backgroundColor =
+        isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200;
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -251,17 +270,21 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildTabButton('Account', isSelected: _selectedTab == 'Account', isDark: isDark),
-          _buildTabButton('Settings', isSelected: _selectedTab == 'Settings', isDark: isDark),
-          // _buildTabButton('Theme'), // Merged into Settings for simplicity
+          _buildTabButton('Account',
+              isSelected: _selectedTab == 'Account', isDark: isDark),
+          _buildTabButton('Settings',
+              isSelected: _selectedTab == 'Settings', isDark: isDark),
         ],
       ),
     );
   }
 
-  Widget _buildTabButton(String text, {bool isSelected = false, required bool isDark}) {
+  Widget _buildTabButton(String text,
+      {bool isSelected = false, required bool isDark}) {
+    // Logic màu Tab cũ
     final selectedColor = isDark ? const Color(0xFF4A6C8B) : Colors.white;
-    final unselectedTextColor = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
+    final unselectedTextColor =
+        isDark ? Colors.grey.shade400 : Colors.grey.shade700;
     final selectedTextColor = isDark ? Colors.white : const Color(0xFF4A6C8B);
 
     return Expanded(
@@ -282,7 +305,9 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     );
   }
 
-  Widget _buildAccountInfoCard(String initials, String name, String email, SettingsProvider settings) {
+  Widget _buildAccountInfoCard(
+      String initials, String name, String email, SettingsProvider settings) {
+    // Card màu xanh đặc trưng (0xFF4A6C8B)
     return Card(
       color: const Color(0xFF4A6C8B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -295,15 +320,25 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: Colors.white,
-                  child: Text(initials, style: const TextStyle(color: Color(0xFF4A6C8B), fontWeight: FontWeight.bold, fontSize: 20)),
+                  child: Text(initials,
+                      style: const TextStyle(
+                          color: Color(0xFF4A6C8B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text(email, style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                      Text(name,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                      Text(email,
+                          style:
+                              TextStyle(color: Colors.white.withOpacity(0.8))),
                     ],
                   ),
                 ),
@@ -311,58 +346,61 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
                   icon: const Icon(Icons.edit_outlined, color: Colors.white),
                   onPressed: () async {
                     final result = await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const EditProfileScreen()),
                     );
                     if (result == true && mounted) {
-                      setState(() {
-                        // Trigger rebuild to update user info
-                      });
+                      setState(() {});
                     }
                   },
                 ),
               ],
             ),
-            const Divider(color: Colors.white30, height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStat('127', settings.strings.translate('tasks_done')),
-                _buildStat('12', settings.strings.translate('day_streak')),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _isPremium ? Colors.amber : Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: _isPremium ? null : Border.all(color: Colors.white.withOpacity(0.5)),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+
+            const SizedBox(height: 16),
+
+            // CHỈ HIỂN THỊ TRẠNG THÁI PREMIUM (Đã bỏ Tasks/Streak)
+            Container(
+              width: double.infinity,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color:
+                    _isPremium ? Colors.amber : Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: _isPremium
+                    ? null
+                    : Border.all(color: Colors.white.withOpacity(0.5)),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isPremium) ...[
+                          const Icon(Icons.star, color: Colors.white, size: 18),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          _isPremium
+                              ? (_planName ??
+                                  settings.strings.translate('premium'))
+                              : settings.strings.translate('free_plan'),
+                          style: TextStyle(
+                            color: _isPremium
+                                ? Colors.white
+                                : Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_isPremium) ...[
-                              const Icon(Icons.star, color: Colors.white, size: 18),
-                              const SizedBox(width: 6),
-                            ],
-                            Text(
-                              _isPremium ? (_planName ?? settings.strings.translate('premium')) : settings.strings.translate('free_plan'),
-                              style: TextStyle(
-                                color: _isPremium ? Colors.white : Colors.white.withOpacity(0.9),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
                         ),
-                ),
-              ],
+                      ],
+                    ),
             )
           ],
         ),
@@ -370,16 +408,8 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     );
   }
 
-  Widget _buildStat(String value, String label) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.8))),
-      ],
-    );
-  }
-
-  Widget _buildInfoTile({required IconData icon, required String text, required bool isDark}) {
+  Widget _buildInfoTile(
+      {required IconData icon, required String text, required bool isDark}) {
     final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
     final iconColor = isDark ? Colors.grey[400] : Colors.grey.shade700;
@@ -395,20 +425,32 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
     );
   }
 
-  Widget _buildActionTile({required BuildContext context, required IconData icon, required String text, Color? color, required VoidCallback onTap, required bool isDark}) {
+  Widget _buildActionTile(
+      {required BuildContext context,
+      required IconData icon,
+      required String text,
+      Color? color,
+      required VoidCallback onTap,
+      required bool isDark}) {
     final textColor = color ?? (isDark ? Colors.white : Colors.black);
-    final iconColor = color ?? (isDark ? Colors.white : Theme.of(context).iconTheme.color);
+    final iconColor =
+        color ?? (isDark ? Colors.white : Theme.of(context).iconTheme.color);
 
     return ListTile(
       leading: Icon(icon, color: iconColor),
-      title: Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+      title: Text(text,
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
       onTap: onTap,
     );
   }
 
-  Widget _buildSettingItem({required IconData icon, required String title, required Widget trailing, required bool isDark}) {
+  Widget _buildSettingItem(
+      {required IconData icon,
+      required String title,
+      required Widget trailing,
+      required bool isDark,
+      required Color textColor}) {
     final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black;
     final iconColor = isDark ? Colors.grey[400] : Colors.grey.shade700;
 
     return Card(
@@ -421,11 +463,16 @@ class _PreferencesSheetState extends State<PreferencesSheet> {
           children: [
             Icon(icon, color: iconColor),
             const SizedBox(width: 16),
-            Expanded(child: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: textColor))),
+            Expanded(
+                child: Text(title,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: textColor))),
             trailing,
           ],
         ),
       ),
     );
   }
-} // <--- Dấu ngoặc quan trọng kết thúc class PreferencesSheet
+}

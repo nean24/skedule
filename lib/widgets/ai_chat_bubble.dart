@@ -1,5 +1,3 @@
-// lib/widgets/ai_chat_bubble.dart
-
 import 'package:flutter/material.dart';
 
 class AiChatBubble extends StatelessWidget {
@@ -7,27 +5,28 @@ class AiChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Màu chủ đạo chuẩn của App (Primary Blue)
+    const primaryColor = Color(0xFF455A75);
+
     return Container(
       width: 60,
       height: 60,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.purple.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // --- SỬA LẠI: Dùng màu đơn sắc thay vì Gradient ---
+        color: primaryColor,
+        // ------------------------------------------------
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: primaryColor.withOpacity(0.4),
             spreadRadius: 2,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: const Icon(
-        Icons.auto_awesome, // Icon ngôi sao lấp lánh của AI
+        Icons.auto_awesome, // Icon ngôi sao lấp lánh
         color: Colors.white,
         size: 30,
       ),

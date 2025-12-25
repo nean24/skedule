@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'package:skedule/main.dart';
+import 'package:skedule/main.dart'; // Chứa biến supabase global
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
+import 'package:skedule/features/payment/subscription_service.dart';
+import 'package:skedule/features/payment/payment_screen.dart';
 
 class ChatMessage {
   final String text;
@@ -29,27 +31,70 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
-
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
-
   final AudioPlayer _audioPlayer = AudioPlayer();
+
+  final SubscriptionService _subService = SubscriptionService();
+  bool _isPremium = false;
 
   @override
   void initState() {
     super.initState();
-    // Initial message will be set in build or handled differently to support localization
+    // 1. Kiểm tra quyền Premium
+    _checkAccess();
+    // 2. Gọi hàm Ping Server (đánh thức Render)
+    _pingServer();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_messages.isEmpty) {
-      final settings = Provider.of<SettingsProvider>(context, listen: false);
+  /// Hàm gửi request giả để đánh thức server Render
+  Future<void> _pingServer() async {
+    final serverUrl = dotenv.env['AI_SERVER_URL'];
+    if (serverUrl != null && serverUrl.isNotEmpty) {
+      try {
+        // Gửi GET request nhẹ nhàng đến root hoặc endpoint health check
+        // Timeout ngắn để không treo app, mục đích chỉ là gửi tín hiệu
+        await http
+            .get(Uri.parse(serverUrl))
+            .timeout(const Duration(seconds: 3));
+        debugPrint("Đã gửi tín hiệu đánh thức AI Server.");
+      } catch (e) {
+        // Lỗi timeout là bình thường với Render khi đang sleep, kệ nó
+        debugPrint("Ping server error (có thể do đang sleep): $e");
+      }
+    }
+  }
+
+  Future<void> _checkAccess() async {
+    final isPrem = await _subService.isPremium();
+    if (mounted) {
+      setState(() => _isPremium = isPrem);
+      _addGreetingMessage(); // Thêm tin nhắn chào sau khi biết trạng thái
+    }
+  }
+
+  void _addGreetingMessage() {
+    // Xóa tin nhắn cũ để tránh duplicate nếu gọi nhiều lần
+    _messages.clear();
+
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+
+    // Tin nhắn hệ thống (luôn hiện)
+    _messages.insert(
+        0,
+        ChatMessage(
+            text: settings.strings
+                .translate('ai_greeting'), // "Tôi là trợ lý AI..."
+            isUser: false));
+
+    // Tin nhắn riêng cho Free User
+    if (!_isPremium) {
       _messages.insert(
           0,
           ChatMessage(
-              text: settings.strings.translate('ai_greeting'), isUser: false));
+              text:
+                  "🔒 Chức năng AI đang bị khóa. Nâng cấp Premium để mở khóa ngay!",
+              isUser: false));
     }
   }
 
@@ -62,28 +107,25 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   }
 
   Future<void> _signOut() async {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
     try {
       await supabase.auth.signOut();
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(settings.strings.translate('error_sign_out')),
-          backgroundColor: Colors.red,
-        ));
-      }
+      debugPrint("Lỗi đăng xuất: $error");
     }
   }
 
   Future<void> _sendMessage({String? text, String? audioFilePath}) async {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    if ((text == null || text.isEmpty) && audioFilePath == null) return;
+    // 1. CHẶN NẾU KHÔNG PHẢI PREMIUM
+    if (!_isPremium) {
+      _showPremiumDialog();
+      return;
+    }
 
+    if ((text == null || text.isEmpty) && audioFilePath == null) return;
     if (text != null) _textController.clear();
 
     setState(() {
-      // Nếu là tin nhắn văn bản, thêm vào UI ngay
       if (text != null) {
         _messages.insert(0, ChatMessage(text: text, isUser: true));
       }
@@ -100,8 +142,7 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
       final serverUrl = dotenv.env['AI_SERVER_URL'];
 
       if (serverUrl == null || serverUrl.isEmpty) {
-        _addMessageToChat(settings.strings.translate('error_config_ai_url'),
-            isUser: false);
+        _addMessageToChat("Chưa cấu hình Server URL trong .env", isUser: false);
         setState(() => _isLoading = false);
         return;
       }
@@ -120,57 +161,65 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
         ));
       }
 
+      // Tăng timeout lên 60s vì server Render khởi động lâu
       final streamedResponse =
-          await request.send().timeout(const Duration(seconds: 45));
+          await request.send().timeout(const Duration(seconds: 60));
       final responseBody = await streamedResponse.stream.bytesToString();
-      final decodedResponse = jsonDecode(responseBody);
 
-      if (streamedResponse.statusCode == 200) {
-        final String? userPrompt = decodedResponse['user_prompt'];
-        final String responseText = decodedResponse['text_response'] ??
-            settings.strings.translate('error_no_response');
-        final String audioBase64 = decodedResponse['audio_base64'] ?? '';
+      try {
+        final decodedResponse = jsonDecode(responseBody);
 
-        // Nếu input là audio, giờ chúng ta mới thêm tin nhắn của người dùng vào UI
-        if (userPrompt != null) {
-          _addMessageToChat(userPrompt, isUser: true);
+        if (streamedResponse.statusCode == 200) {
+          final settings =
+              Provider.of<SettingsProvider>(context, listen: false);
+          final String responseText = decodedResponse['text_response'] ??
+              settings.strings.translate('error_no_response');
+          final String audioBase64 = decodedResponse['audio_base64'] ?? '';
+
+          if (decodedResponse['user_prompt'] != null && audioFilePath != null) {
+            _addMessageToChat(decodedResponse['user_prompt'], isUser: true);
+          }
+
+          _addMessageToChat(responseText, isUser: false);
+
+          if (audioBase64.isNotEmpty) {
+            _playAudio(audioBase64);
+          }
+        } else {
+          _addMessageToChat(
+              "Lỗi server (${streamedResponse.statusCode}): ${decodedResponse['detail'] ?? 'Unknown error'}",
+              isUser: false);
         }
-
-        _addMessageToChat(responseText, isUser: false);
-
-        if (audioBase64.isNotEmpty) {
-          _playAudio(audioBase64);
-        }
-      } else {
-        final String errorMessage = decodedResponse['detail'] ??
-            '${settings.strings.translate('error_unknown_server')} (${streamedResponse.statusCode}).';
-        _addMessageToChat(
-            '${settings.strings.translate('error')}: $errorMessage',
+      } catch (jsonError) {
+        _addMessageToChat("Lỗi phản hồi từ server: $responseBody",
             isUser: false);
       }
-    } on TimeoutException {
-      _addMessageToChat(settings.strings.translate('error_connection_timeout'),
-          isUser: false);
     } catch (e) {
-      _addMessageToChat("${settings.strings.translate('error_connection')}: $e",
-          isUser: false);
-      print("--- DEBUG: Lỗi chi tiết: $e");
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      if (e is TimeoutException) {
+        _addMessageToChat(
+            "Server đang khởi động, vui lòng thử lại sau 30 giây...",
+            isUser: false);
+        // Gửi lại tín hiệu ping
+        _pingServer();
+      } else {
+        _addMessageToChat("Lỗi kết nối: $e", isUser: false);
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleRecord() async {
+    if (!_isPremium) {
+      _showPremiumDialog();
+      return;
+    }
+
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     if (_isRecording) {
       final path = await _audioRecorder.stop();
       if (path != null) {
         setState(() => _isRecording = false);
-        // Không thêm tin nhắn tạm thời nữa, chỉ gửi file đi
         _sendMessage(audioFilePath: path);
       }
     } else {
@@ -190,11 +239,8 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
     try {
       final audioBytes = base64Decode(base64Audio);
       await _audioPlayer.play(BytesSource(audioBytes));
-      _audioPlayer.onPlayerComplete.listen((event) {
-        if (mounted) setState(() {});
-      });
     } catch (e) {
-      print("Lỗi phát audio: $e");
+      debugPrint("Lỗi phát audio: $e");
     }
   }
 
@@ -204,17 +250,83 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
     });
   }
 
+  void _showPremiumDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.lock, color: Colors.orange),
+          SizedBox(width: 8),
+          Text('Tính năng VIP')
+        ]),
+        content: const Text(
+          'Tính năng Trợ lý AI chỉ dành cho tài khoản Premium.\n\nVui lòng nâng cấp để sử dụng tính năng thông minh này!',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF455A75)),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const PaymentScreen()))
+                  .then((_) => _checkAccess());
+            },
+            child: const Text('Nâng cấp ngay',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+    final backgroundColor =
+        isDark ? const Color(0xFF121212) : const Color(0xFFDDE3ED);
+    final textColor =
+        isDark ? const Color(0xFFE0E0E0) : const Color(0xFF2D3142);
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(settings.strings.translate('skedule_ai')),
+        title: Row(
+          children: [
+            Text(settings.strings.translate('skedule_ai'),
+                style:
+                    TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            if (_isPremium)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                    color: Colors.amber,
+                    borderRadius: BorderRadius.circular(4)),
+                child: const Text("PRO",
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold)),
+              )
+          ],
+        ),
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _signOut,
-            tooltip: settings.strings.translate('sign_out'),
           )
         ],
       ),
@@ -222,7 +334,7 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
         children: [
           Flexible(
             child: ListView.builder(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(16.0),
               reverse: true,
               itemCount: _messages.length,
               itemBuilder: (_, int index) {
@@ -233,65 +345,119 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
                       : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.symmetric(
-                        vertical: 4.0, horizontal: 8.0),
+                        vertical: 6.0, horizontal: 4.0),
                     padding: const EdgeInsets.symmetric(
-                        vertical: 10.0, horizontal: 14.0),
+                        vertical: 12.0, horizontal: 16.0),
                     decoration: BoxDecoration(
-                      color:
-                          message.isUser ? Colors.blue[100] : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(16.0),
+                      color: message.isUser
+                          ? Colors.blue[600]
+                          : (isDark ? const Color(0xFF2C2C2C) : Colors.white),
+                      borderRadius: BorderRadius.circular(20.0),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5)
+                      ],
                     ),
-                    child: Text(message.text),
+                    child: Text(
+                      message.text,
+                      style: TextStyle(
+                          color: message.isUser
+                              ? Colors.white
+                              : (isDark ? Colors.white : Colors.black87)),
+                    ),
                   ),
                 );
               },
             ),
           ),
-          if (_isLoading) const LinearProgressIndicator(),
-          const Divider(height: 1.0),
+          if (_isLoading)
+            const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: LinearProgressIndicator(
+                    backgroundColor: Colors.transparent)),
           Container(
-            decoration: BoxDecoration(color: Theme.of(context).cardColor),
-            child: _buildTextComposer(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextComposer() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-      child: Row(
-        children: [
-          Flexible(
-            child: TextField(
-              controller: _textController,
-              onSubmitted:
-                  _isLoading ? null : (text) => _sendMessage(text: text),
-              decoration: const InputDecoration.collapsed(
-                  hintText: 'Nhập hoặc giữ nút micro để nói...'),
-              enabled: !_isLoading,
+            padding: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(25)),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2))
+              ],
+            ),
+            child: Container(
+              margin:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: GestureDetector(
+                      onTap: !_isPremium ? _showPremiumDialog : null,
+                      child: TextField(
+                        controller: _textController,
+                        style: TextStyle(color: textColor),
+                        enabled: _isPremium && !_isLoading,
+                        onSubmitted: _isLoading
+                            ? null
+                            : (text) => _sendMessage(text: text),
+                        decoration: InputDecoration(
+                          hintText: _isPremium
+                              ? 'Nhập tin nhắn...'
+                              : 'Chức năng chỉ dành cho VIP 🔒',
+                          hintStyle:
+                              TextStyle(color: textColor.withOpacity(0.5)),
+                          border: InputBorder.none,
+                          prefixIcon: !_isPremium
+                              ? const Icon(Icons.lock, color: Colors.grey)
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                        color: _isRecording
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.transparent,
+                        shape: BoxShape.circle),
+                    child: IconButton(
+                      icon: Icon(_isRecording
+                          ? Icons.stop_circle_outlined
+                          : Icons.mic),
+                      onPressed: _isLoading ? null : _handleRecord,
+                      color: !_isPremium
+                          ? Colors.grey
+                          : (_isRecording
+                              ? Colors.redAccent
+                              : Theme.of(context).primaryColor),
+                      iconSize: 24,
+                    ),
+                  ),
+                  IconButton(
+                    icon: _isLoading
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                                color: Theme.of(context).primaryColor))
+                        : const Icon(Icons.send),
+                    color: !_isPremium
+                        ? Colors.grey
+                        : Theme.of(context).primaryColor,
+                    onPressed: _isLoading
+                        ? null
+                        : () => _sendMessage(text: _textController.text),
+                  )
+                ],
+              ),
             ),
           ),
-          IconButton(
-            icon: Icon(_isRecording ? Icons.stop_circle_outlined : Icons.mic),
-            onPressed: _isLoading ? null : _handleRecord,
-            color: _isRecording
-                ? Colors.redAccent
-                : Theme.of(context).primaryColor,
-            iconSize: 28,
-          ),
-          IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.0))
-                : const Icon(Icons.send),
-            onPressed: _isLoading
-                ? null
-                : () => _sendMessage(text: _textController.text),
-          )
         ],
       ),
     );
