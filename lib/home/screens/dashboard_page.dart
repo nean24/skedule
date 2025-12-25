@@ -6,7 +6,7 @@ import 'package:skedule/features/settings/settings_provider.dart';
 import 'package:skedule/widgets/stat_card.dart';
 import 'package:skedule/widgets/task_card.dart';
 import 'package:skedule/home/screens/event_detail_screen.dart';
-import 'package:skedule/home/screens/help_screen.dart'; // <--- Đã thêm import trang Help
+import 'package:skedule/home/screens/help_screen.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -35,15 +35,76 @@ class _DashboardPageState extends State<DashboardPage> {
   int _weekActiveDays = 0;
   int _weekUpcoming = 0;
 
+  // Biến lưu tạm những task vừa check xong trong phiên này (để không bị biến mất ngay)
+  final Set<int> _recentlyCompletedMissedTaskIds = {};
+
+  late final RealtimeChannel _tasksSubscription;
+  late final RealtimeChannel _eventsSubscription;
+
   @override
   void initState() {
     super.initState();
     _fetchDashboardData();
+    _setupRealtimeSubscription();
+  }
+
+  @override
+  void dispose() {
+    _supabase.removeChannel(_tasksSubscription);
+    _supabase.removeChannel(_eventsSubscription);
+    super.dispose();
+  }
+
+  void _setupRealtimeSubscription() {
+    _tasksSubscription = _supabase
+        .channel('public:tasks')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'tasks',
+            callback: (payload) {
+              _fetchDashboardData();
+            })
+        .subscribe();
+
+    _eventsSubscription = _supabase
+        .channel('public:events')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'events',
+            callback: (payload) {
+              _fetchDashboardData();
+            })
+        .subscribe();
+  }
+
+  // --- HÀM XỬ LÝ CHECK/UNCHECK TASK ---
+  Future<void> _toggleTaskStatus(dynamic taskId, bool currentStatus) async {
+    try {
+      final newStatus = !currentStatus;
+
+      // Nếu đánh dấu là hoàn thành, lưu ID vào danh sách tạm để giữ lại trên giao diện
+      if (newStatus) {
+        _recentlyCompletedMissedTaskIds.add(taskId as int);
+      } else {
+        _recentlyCompletedMissedTaskIds.remove(taskId as int);
+      }
+
+      await _supabase.from('tasks').update({
+        'is_completed': newStatus,
+        'status': newStatus ? 'done' : 'todo',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', taskId);
+
+      // Đã bỏ thông báo SnackBar theo yêu cầu
+    } catch (e) {
+      debugPrint('Error toggling task: $e');
+    }
   }
 
   Future<void> _fetchDashboardData() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
 
     final user = _supabase.auth.currentUser;
     if (user == null) return;
@@ -53,11 +114,11 @@ class _DashboardPageState extends State<DashboardPage> {
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
 
     try {
-      // 1. Lấy dữ liệu Tasks
-      final tasksResponse =
-          await _supabase.from('tasks').select().eq('user_id', user.id);
+      final tasksResponse = await _supabase
+          .from('tasks')
+          .select('*, checklist_items(*)')
+          .eq('user_id', user.id);
 
-      // 2. Lấy dữ liệu Events
       final eventsResponse =
           await _supabase.from('events').select().eq('user_id', user.id);
 
@@ -69,47 +130,64 @@ class _DashboardPageState extends State<DashboardPage> {
       List<Map<String, dynamic>> comingUp = [];
       List<Map<String, dynamic>> missedList = [];
 
-      // Tập hợp các ngày đã hoàn thành task để tính Streak
       final Set<DateTime> activeDates = {};
 
-      // --- XỬ LÝ TASKS ---
       for (var t in tasksResponse) {
         final task = Map<String, dynamic>.from(t);
-        task['isTask'] = true; // Đánh dấu đây là Task
+        task['isTask'] = true;
+
+        if (task['checklist_items'] != null) {
+          final List items = task['checklist_items'] as List;
+          if (items.isNotEmpty) {
+            final completedCount =
+                items.where((i) => i['is_done'] == true).length;
+            task['checklistInfo'] = "$completedCount/${items.length}";
+          }
+        }
 
         final bool isCompleted = task['is_completed'] ?? false;
         final DateTime? deadline = task['deadline'] != null
             ? DateTime.parse(task['deadline']).toLocal()
             : null;
 
-        if (isCompleted) {
+        final int taskId = task['id'];
+
+        // --- LOGIC MỚI ĐỂ GIỮ TASK VỪA HOÀN THÀNH ---
+        // Nếu task đã xong VÀ nằm trong danh sách "vừa mới check" -> Vẫn coi là Missed (để hiển thị)
+        bool treatAsMissed = false;
+        if (isCompleted && _recentlyCompletedMissedTaskIds.contains(taskId)) {
+          treatAsMissed = true;
+        }
+
+        if (isCompleted && !treatAsMissed) {
           completed++;
           if (deadline != null && deadline.isAfter(startOfWeek)) weekComp++;
 
-          // Lưu ngày hoàn thành để tính Streak
           if (task['updated_at'] != null) {
             final updateTime = DateTime.parse(task['updated_at']).toLocal();
             activeDates.add(
                 DateTime(updateTime.year, updateTime.month, updateTime.day));
           }
         } else if (deadline != null) {
-          if (deadline.isBefore(now)) {
+          // Nếu quá hạn HOẶC là task vừa mới hoàn thành (treatAsMissed)
+          if (deadline.isBefore(now) || treatAsMissed) {
             missed++;
+            // Đánh dấu để TaskCard biết mà gạch ngang
+            if (treatAsMissed) {
+              task['is_temp_done'] = true;
+            }
             missedList.add(task);
           } else {
             comingUp.add(task);
             if (deadline.isAfter(startOfWeek)) weekUp++;
           }
         } else {
-          // Task chưa xong và không có deadline -> cho vào danh sách cần làm
           comingUp.add(task);
         }
       }
 
-      // --- TÍNH TOÁN STREAK ---
       int streak = 0;
       DateTime checkDate = today;
-      // Nếu hôm nay chưa làm, kiểm tra từ hôm qua để giữ chuỗi
       if (!activeDates.contains(today)) {
         checkDate = today.subtract(const Duration(days: 1));
       }
@@ -118,11 +196,10 @@ class _DashboardPageState extends State<DashboardPage> {
         checkDate = checkDate.subtract(const Duration(days: 1));
       }
 
-      // --- XỬ LÝ EVENTS ---
       int happening = 0;
       for (var e in eventsResponse) {
         final event = Map<String, dynamic>.from(e);
-        event['isTask'] = false; // Đánh dấu đây là Event
+        event['isTask'] = false;
 
         if (event['start_time'] == null || event['end_time'] == null) continue;
 
@@ -136,7 +213,6 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       }
 
-      // Sắp xếp danh sách Coming Up theo thời gian
       comingUp.sort((a, b) {
         DateTime timeA = DateTime(2100);
         if (a['isTask'] == true && a['deadline'] != null) {
@@ -154,7 +230,6 @@ class _DashboardPageState extends State<DashboardPage> {
         return timeA.compareTo(timeB);
       });
 
-      // Tính điểm hiệu suất
       double score = tasksResponse.isEmpty
           ? 0.0
           : (completed / tasksResponse.length) * 100;
@@ -167,8 +242,10 @@ class _DashboardPageState extends State<DashboardPage> {
           _dayStreak = streak;
           _productivityScore = score;
 
-          _comingUpItems = comingUp.take(3).toList(); // Lấy 3 việc sắp tới
-          _missedTasksItems = missedList.take(3).toList();
+          _comingUpItems = comingUp.take(3).toList();
+          _missedTasksItems = missedList
+              .take(3)
+              .toList(); // Missed list giờ đã bao gồm cả task vừa xong
 
           _weekCompleted = weekComp;
           _weekUpcoming = weekUp;
@@ -184,7 +261,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Hàm chuyển trang khi bấm vào Task/Event
   void _navigateToDetail(Map<String, dynamic> item, bool isTask) async {
     final result = await Navigator.push(
       context,
@@ -196,7 +272,6 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
 
-    // Nếu màn hình chi tiết trả về true (có thay đổi dữ liệu), load lại dashboard
     if (result == true) {
       _fetchDashboardData();
     }
@@ -204,55 +279,59 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
     final settings = Provider.of<SettingsProvider>(context);
     final isDark = settings.isDarkMode;
     final backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: ListView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(vertical: 24.0),
-        children: [
-          _buildHeader(),
-          const SizedBox(height: 24),
-          _buildStatsGrid(settings),
-          const SizedBox(height: 32),
+      body: RefreshIndicator(
+        onRefresh: _fetchDashboardData,
+        color: const Color(0xFF455A75),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _buildStatsGrid(settings),
+                  const SizedBox(height: 32),
 
-          // --- COMING UP ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: _buildSectionHeader(
-                title: settings.strings.translate('coming_up')),
-          ),
-          const SizedBox(height: 16),
-          _buildComingUpList(),
+                  // --- COMING UP ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: _buildSectionHeader(
+                        title: settings.strings.translate('coming_up')),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildComingUpList(),
 
-          const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-          // --- MISSED TASKS ---
-          if (_missedTasksItems.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: _buildSectionHeader(
-                  title: settings.strings.translate('missed_tasks'),
-                  count: _missedCount),
-            ),
-            const SizedBox(height: 16),
-            _buildMissedTasksList(),
-            const SizedBox(height: 32),
-          ],
+                  // --- MISSED TASKS ---
+                  if (_missedTasksItems.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _buildSectionHeader(
+                          title: settings.strings.translate('missed_tasks'),
+                          count: _missedCount),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildMissedTasksList(),
+                    const SizedBox(height: 32),
+                  ],
 
-          _buildSummaryCard(settings),
-          const SizedBox(height: 30),
-        ],
+                  _buildSummaryCard(settings),
+                  const SizedBox(height: 30),
+                ],
+              ),
       ),
     );
   }
 
-  // --- CÁC WIDGET CON ---
-
+  // ... (Giữ nguyên các widget con _buildHeader, _buildStatsGrid, _buildSummaryCard, _buildSectionHeader)
   Widget _buildHeader() {
     final settings = Provider.of<SettingsProvider>(context);
     final isDark = settings.isDarkMode;
@@ -283,8 +362,6 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
             ),
           ),
-
-          // --- NÚT HƯỚNG DẪN (DẤU ?) MỚI THÊM ---
           GestureDetector(
             onTap: () {
               Navigator.push(
@@ -307,8 +384,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: subTextColor, size: 24),
             ),
           ),
-          // ----------------------------------------
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -404,9 +479,14 @@ class _DashboardPageState extends State<DashboardPage> {
                 .format(DateTime.parse(item['start_time']).toLocal());
           }
 
+          String subtitle = isTask ? 'Task' : 'Event';
+          if (isTask && item['checklistInfo'] != null) {
+            subtitle = 'Task • ${item['checklistInfo']}';
+          }
+
           return TaskCard(
             title: item['title'] ?? 'Untitled',
-            subtitle: isTask ? 'Task' : 'Event',
+            subtitle: subtitle,
             time: timeStr,
             location: isTask ? '' : (item['description'] ?? ''),
             tag1Text: isTask ? 'deadline' : item['type'] ?? 'event',
@@ -416,6 +496,8 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: isTask ? Icons.task_alt : Icons.event,
             borderColor: isTask ? Colors.orange : Colors.purple,
             isTask: isTask,
+            // Sửa lỗi: Truyền item['id'] vào, dynamic sẽ nhận int
+            onCheck: isTask ? () => _toggleTaskStatus(item['id'], false) : null,
             onTap: () => _navigateToDetail(item, isTask),
           );
         }).toList(),
@@ -428,6 +510,9 @@ class _DashboardPageState extends State<DashboardPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: _missedTasksItems.map((item) {
+          // Kiểm tra xem item này có phải là cái vừa check xong không
+          final bool isTempDone = item['is_temp_done'] ?? false;
+
           return TaskCard(
             title: item['title'] ?? 'N/A',
             subtitle: 'Overdue',
@@ -440,6 +525,8 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: Icons.error_outline,
             borderColor: Colors.red,
             isTask: true,
+            isDone: isTempDone, // <--- Truyền trạng thái gạch ngang
+            onCheck: () => _toggleTaskStatus(item['id'], isTempDone), // Toggle
             onTap: () => _navigateToDetail(item, true),
           );
         }).toList(),

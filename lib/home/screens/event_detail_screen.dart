@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:skedule/features/settings/settings_provider.dart';
 
-// --- BẢNG MÀU ĐỒNG BỘ (Copy từ CalendarScreen để đảm bảo consistency) ---
+// --- BẢNG MÀU ĐỒNG BỘ ---
 class AppColors {
   static const Color scaffoldBg = Color(0xFFDDE3ED);
   static const Color cardBg = Colors.white;
@@ -41,12 +41,68 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   late bool _isCompleted;
   bool _isLoading = false;
 
+  // Biến lưu checklist
+  List<Map<String, dynamic>> _checklistItems = [];
+  bool _hasChanges = false; // Đánh dấu có thay đổi để reload màn hình trước
+
   @override
   void initState() {
     super.initState();
     _isCompleted = widget.data['is_completed'] ?? false;
+
+    // Nếu là Task, tải thêm checklist
+    if (widget.isTask) {
+      _fetchChecklist();
+    }
   }
 
+  // --- TẢI CHECKLIST TỪ SERVER ---
+  Future<void> _fetchChecklist() async {
+    try {
+      final response = await _supabase
+          .from('checklist_items')
+          .select()
+          .eq('task_id', widget.data['id'])
+          .order('id', ascending: true);
+
+      if (mounted) {
+        setState(() {
+          _checklistItems = List<Map<String, dynamic>>.from(response);
+        });
+      }
+    } catch (e) {
+      debugPrint('Lỗi tải checklist: $e');
+    }
+  }
+
+  // --- TICK CHỌN CHECKLIST ---
+  Future<void> _toggleChecklistItem(int index) async {
+    final item = _checklistItems[index];
+    final newValue = !(item['is_done'] as bool);
+
+    // Cập nhật UI ngay lập tức (Optimistic UI)
+    setState(() {
+      _checklistItems[index]['is_done'] = newValue;
+      _hasChanges = true;
+    });
+
+    try {
+      await _supabase
+          .from('checklist_items')
+          .update({'is_done': newValue}).eq('id', item['id']);
+    } catch (e) {
+      // Nếu lỗi thì revert lại
+      if (mounted) {
+        setState(() {
+          _checklistItems[index]['is_done'] = !newValue;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Lỗi cập nhật checklist')));
+      }
+    }
+  }
+
+  // --- HOÀN THÀNH TASK ---
   Future<void> _toggleComplete() async {
     if (!widget.isTask) return;
     setState(() => _isLoading = true);
@@ -62,6 +118,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       setState(() {
         _isCompleted = newStatus;
         _isLoading = false;
+        _hasChanges = true;
       });
     } catch (e) {
       debugPrint('Lỗi update: $e');
@@ -95,7 +152,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     try {
       final table = widget.isTask ? 'tasks' : 'events';
       await _supabase.from(table).delete().eq('id', widget.data['id']);
-      if (mounted) Navigator.pop(context, true);
+      if (mounted)
+        Navigator.pop(context, true); // Trả về true để reload list bên ngoài
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -106,16 +164,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     final settings = Provider.of<SettingsProvider>(context);
     final isDark = settings.isDarkMode;
 
-    // --- MÀU SẮC THEO THEME ---
     final bgColor = isDark ? AppColors.scaffoldBgDark : AppColors.scaffoldBg;
     final cardColor = isDark ? AppColors.cardBgDark : AppColors.cardBg;
     final textColor = isDark ? AppColors.textDarkDark : AppColors.textDark;
     final subTextColor = isDark ? AppColors.textLightDark : AppColors.textLight;
 
-    // Màu nhấn dựa trên loại
     final accentColor = widget.isTask ? AppColors.task : AppColors.classColor;
 
-    // Format thời gian
     final rawTime =
         widget.isTask ? widget.data['deadline'] : widget.data['start_time'];
     String dateStr = "N/A";
@@ -145,8 +200,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
           child: IconButton(
             icon: Icon(Icons.arrow_back_ios_new, size: 18, color: textColor),
-            onPressed: () => Navigator.pop(context,
-                _isCompleted != (widget.data['is_completed'] ?? false)),
+            onPressed: () => Navigator.pop(
+                context, _hasChanges), // Trả về trạng thái thay đổi
           ),
         ),
         actions: [
@@ -172,20 +227,17 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- HEADER CARD: Trạng thái & Loại ---
+                  // --- HEADER CARD ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildTag(
-                        widget.isTask ? 'TASK' : 'EVENT',
-                        accentColor,
-                      ),
+                      _buildTag(widget.isTask ? 'TASK' : 'EVENT', accentColor),
                       if (widget.isTask) _buildStatusTag(_isCompleted),
                     ],
                   ),
                   const SizedBox(height: 20),
 
-                  // --- TITLE SECTION ---
+                  // --- TITLE ---
                   Text(
                     widget.data['title'] ?? 'Không có tiêu đề',
                     style: TextStyle(
@@ -197,7 +249,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // --- INFO CARD (Thời gian & Mô tả) ---
+                  // --- INFO CARD ---
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
@@ -215,7 +267,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Hàng thời gian
+                        // Thời gian
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -251,11 +303,56 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             ),
                           ],
                         ),
+
+                        // --- CHECKLIST SECTION (MỚI) ---
+                        if (widget.isTask && _checklistItems.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          Divider(color: subTextColor.withOpacity(0.2)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Checklist',
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: subTextColor),
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _checklistItems.length,
+                            itemBuilder: (context, index) {
+                              final item = _checklistItems[index];
+                              final isDone = item['is_done'] ?? false;
+
+                              return CheckboxListTile(
+                                title: Text(
+                                  item['item_text'] ?? '',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    decoration: isDone
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    decorationColor: subTextColor,
+                                  ),
+                                ),
+                                value: isDone,
+                                activeColor: accentColor,
+                                checkColor: Colors.white,
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                onChanged: (val) => _toggleChecklistItem(index),
+                              );
+                            },
+                          ),
+                        ],
+
                         const SizedBox(height: 24),
                         Divider(color: subTextColor.withOpacity(0.2)),
                         const SizedBox(height: 24),
 
-                        // Phần mô tả
+                        // Mô tả
                         Text(
                           'Mô tả',
                           style: TextStyle(
@@ -283,8 +380,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 ],
               ),
             ),
-
-      // --- BOTTOM ACTION BUTTON ---
       bottomNavigationBar: widget.isTask
           ? SafeArea(
               child: Padding(
